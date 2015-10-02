@@ -135,7 +135,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 			if (signature != null)
 				signature = signature + Type.getDescriptor((Configuration.MULTI_TAINTING ? TaintedWithObjTag.class : TaintedWithIntTag.class));
 		}
-		this.visitAnnotation(Type.getDescriptor(TaintInstrumented.class), false);
+		this.visitAnnotation(Type.getDescriptor(TaintInstrumented.class), true);
 
 		//		System.out.println("V " + version);
 		for (String s : interfaces) {
@@ -449,7 +449,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 				super.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "serialVersionUIDPHOSPHOR_TAG", Configuration.TAINT_TAG_DESC, null, null);
 		}
 		//Add a field to track the instance's taint
-		if (addTaintField && !goLightOnGeneratedStuff) {
+		if (addTaintField && !goLightOnGeneratedStuff && false) {
 			if(!Configuration.MULTI_TAINTING)
 				super.visitField(Opcodes.ACC_PUBLIC, TaintUtils.TAINT_FIELD, "I", null, 0);
 			else
@@ -536,16 +536,19 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 				if (!Configuration.MULTI_TAINTING) {
 					mv = super.visitMethod(Opcodes.ACC_PUBLIC, "get" + TaintUtils.TAINT_FIELD, "()" + (Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I"), null, null);
 					mv.visitCode();
-					mv.visitVarInsn(Opcodes.ALOAD, 0);
+					mv.visitTypeInsn(Opcodes.NEW, Type.getInternalName(UnsupportedOperationException.class));
+					mv.visitInsn(Opcodes.ATHROW);
+					/*mv.visitVarInsn(Opcodes.ALOAD, 0);
 					mv.visitFieldInsn(Opcodes.GETFIELD, className, TaintUtils.TAINT_FIELD, Configuration.TAINT_TAG_DESC);
 
 					mv.visitInsn(Opcodes.IRETURN);
-					mv.visitMaxs(0, 0);
+					mv.visitMaxs(0, 0);*/
 					mv.visitEnd();
 
 					mv = super.visitMethod(Opcodes.ACC_PUBLIC, "set" + TaintUtils.TAINT_FIELD, "(" + (Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I") + ")V", null, null);
 					mv.visitCode();
-					mv.visitVarInsn(Opcodes.ALOAD, 0);
+					mv.visitInsn(Opcodes.RETURN);
+					/*mv.visitVarInsn(Opcodes.ALOAD, 0);
 					mv.visitVarInsn(Opcodes.ILOAD, 1);
 					if(Configuration.MULTI_TAINTING)
 						mv.visitTypeInsn(Opcodes.CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
@@ -557,7 +560,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 						mv.visitVarInsn(Opcodes.ILOAD, 1);
 						mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintChecker.class), "setTaints", "([II)V", false);
 					}
-					mv.visitInsn(Opcodes.RETURN);
+					mv.visitInsn(Opcodes.RETURN);*/
 					mv.visitMaxs(0, 0);
 					mv.visitEnd();
 				}
@@ -590,90 +593,6 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 					mv.visitMaxs(0, 0);
 					mv.visitEnd();
 				}
-//				if (!this.isProxyClass && GEN_HAS_TAINTS_METHOD) {
-//					mv = super.visitMethod(Opcodes.ACC_PUBLIC, "hasAnyTaints", "()Z", null, null);
-//					mv.visitCode();
-//					Label keepGoing1 = new Label();
-//					mv.visitVarInsn(Opcodes.ALOAD, 0);
-//					mv.visitFieldInsn(Opcodes.GETFIELD, className, TaintUtils.HAS_TAINT_FIELD, "Z");
-//					mv.visitJumpInsn(Opcodes.IFEQ, keepGoing1);
-//					mv.visitInsn(Opcodes.ICONST_1);
-//					mv.visitInsn(Opcodes.IRETURN);
-//					mv.visitLabel(keepGoing1);
-//					//TODO if the istaitnsearchingfield is 1, then return 0.
-//					mv.visitVarInsn(Opcodes.ALOAD, 0);
-//					mv.visitFieldInsn(Opcodes.GETFIELD, className, TaintUtils.IS_TAINT_SEATCHING_FIELD, "Z");
-//					Label keepGoing = new Label();
-//					mv.visitJumpInsn(Opcodes.IFEQ, keepGoing);
-//					mv.visitInsn(Opcodes.ICONST_0);
-//					mv.visitInsn(Opcodes.IRETURN);
-//					mv.visitLabel(keepGoing);
-//					if (myFields.size() > 0) {
-//						mv.visitVarInsn(Opcodes.ALOAD, 0);
-//						mv.visitInsn(Opcodes.ICONST_1);
-//						mv.visitFieldInsn(Opcodes.PUTFIELD, className, TaintUtils.IS_TAINT_SEATCHING_FIELD, "Z");
-//
-//						Label hasTaint = new Label();
-//						for (FieldNode fn : myFields) {
-//							Type fieldDesc = Type.getType(fn.desc);
-//							if (TaintUtils.getShadowTaintType(fn.desc) != null) {
-//								if (fieldDesc.getSort() == Type.ARRAY) {
-//									mv.visitVarInsn(Opcodes.ALOAD, 0);
-//									mv.visitFieldInsn(Opcodes.GETFIELD, className, fn.name + TaintUtils.TAINT_FIELD, TaintUtils.getShadowTaintType(fn.desc));
-//									if (fieldDesc.getDimensions() == 1) {
-//										mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "arrayHasTaints", "([I)Z",false);
-//									} else if (fieldDesc.getDimensions() == 2) {
-//										mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "arrayHasTaints", "([[I)Z",false);
-//									} else if (fieldDesc.getDimensions() == 3) {
-//										mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "arrayHasTaints", "([[[I)Z",false);
-//									} else {
-//										//bail and say that it has a taint i guess
-//										mv.visitInsn(Opcodes.POP);
-//										mv.visitInsn(Opcodes.ICONST_1);
-//									}
-//									mv.visitJumpInsn(Opcodes.IFNE, hasTaint);
-//								} else {
-//									mv.visitVarInsn(Opcodes.ALOAD, 0);
-//									mv.visitFieldInsn(Opcodes.GETFIELD, className, fn.name + TaintUtils.TAINT_FIELD, "I");
-//									mv.visitJumpInsn(Opcodes.IFNE, hasTaint);
-//								}
-//							} else if (!Instrumenter.isIgnoredClass(fieldDesc.getInternalName()) && GEN_HAS_TAINTS_METHOD) {
-//								int op = Opcodes.INVOKEVIRTUAL;
-//								if (Instrumenter.isInterface(fieldDesc.getInternalName()))
-//									op = Opcodes.INVOKEINTERFACE;
-//								mv.visitVarInsn(Opcodes.ALOAD, 0);
-//								mv.visitFieldInsn(Opcodes.GETFIELD, className, fn.name, fn.desc);
-//								mv.visitMethodInsn(op, fieldDesc.getInternalName(), "hasAnyTaints", "()Z",false);
-//								mv.visitJumpInsn(Opcodes.IFNE, hasTaint);
-//							} else {
-//								//TODO XXX MUST FETCH THE TAINT SOMEHOW FOR IGNORED CLASSES FOR THIS TO BE SOUND
-//							}
-//						}
-//
-//						mv.visitVarInsn(Opcodes.ALOAD, 0);
-//						mv.visitInsn(Opcodes.ICONST_0);
-//						mv.visitFieldInsn(Opcodes.PUTFIELD, className, TaintUtils.IS_TAINT_SEATCHING_FIELD, "Z");
-//
-//						mv.visitInsn(Opcodes.ICONST_0);
-//						mv.visitInsn(Opcodes.IRETURN);
-//
-//						mv.visitLabel(hasTaint);
-//						mv.visitVarInsn(Opcodes.ALOAD, 0);
-//						mv.visitInsn(Opcodes.ICONST_0);
-//						mv.visitFieldInsn(Opcodes.PUTFIELD, className, TaintUtils.IS_TAINT_SEATCHING_FIELD, "Z");
-//
-//						mv.visitVarInsn(Opcodes.ALOAD, 0);
-//						mv.visitInsn(Opcodes.ICONST_1);
-//						mv.visitFieldInsn(Opcodes.PUTFIELD, className, TaintUtils.HAS_TAINT_FIELD, "Z");
-//						mv.visitInsn(Opcodes.ICONST_1);
-//						mv.visitInsn(Opcodes.IRETURN);
-//					} else {
-//						mv.visitInsn(Opcodes.ICONST_0);
-//						mv.visitInsn(Opcodes.IRETURN);
-//					}
-//					mv.visitMaxs(0, 0);
-//					mv.visitEnd();
-//				}
 			}
 		}
 		

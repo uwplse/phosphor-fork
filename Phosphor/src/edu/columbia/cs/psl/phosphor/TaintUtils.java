@@ -614,6 +614,18 @@ public class TaintUtils {
 				throw new IllegalArgumentException("Got: "+t);
 		}
 	}
+	
+	public static Object maybeUnbox$$PHOSPHORTAGGED(Object o) {
+		if(o == null) {
+			return null;
+		} else if(Configuration.MULTI_TAINTING && o instanceof MultiDTaintedArrayWithObjTag) {
+			return ((MultiDTaintedArrayWithObjTag)o).getVal();
+		} else if(!Configuration.MULTI_TAINTING && o instanceof MultiDTaintedArrayWithIntTag) {
+			return ((MultiDTaintedArrayWithIntTag)o).getVal();
+		} else {
+			return o;
+		}
+	}
 
 
 	public static Object[] newTaintArray(int len)
