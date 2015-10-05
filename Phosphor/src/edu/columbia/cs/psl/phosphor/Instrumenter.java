@@ -687,7 +687,7 @@ public class Instrumenter {
 		}
 		if (f.isDirectory())
 			processDirectory(f, rootOutputDir, true);
-		else if (inputFolder.endsWith(".jar") || inputFolder.endsWith(".war"))
+		else if (inputFolder.endsWith(".jar") || inputFolder.endsWith(".war")) {
 			// try {
 			// FileOutputStream fos = new FileOutputStream(rootOutputDir.getPath() +
 			// File.separator + f.getName());
@@ -696,7 +696,7 @@ public class Instrumenter {
 		// // TODO Auto-generated catch block
 		// e1.printStackTrace();
 		// }
-		else if (inputFolder.endsWith(".class"))
+		} else if (inputFolder.endsWith(".class"))
 			try {
 				processClass(f.getName(), new FileInputStream(f), rootOutputDir);
 			} catch (FileNotFoundException e) {

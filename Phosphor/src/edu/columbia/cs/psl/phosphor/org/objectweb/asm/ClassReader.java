@@ -1549,9 +1549,10 @@ public class ClassReader {
             mv.visitAttribute(attributes);
             attributes = attr;
         }
-
+//        System.out.println("-: " + context.name + " " + context.desc);
         // visits the max stack and max locals values
         mv.visitMaxs(maxStack, maxLocals);
+//        System.out.println("+: " + context.name + " " + context.desc);
     }
 
     /**

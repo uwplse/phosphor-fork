@@ -131,6 +131,7 @@ public class PreMain {
 		}
 		
 		public byte[] transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+			
 			ClassReader cr = new ClassReader(classfileBuffer);
 			String className = cr.getClassName();
 			innerException = false;
@@ -184,19 +185,18 @@ public class PreMain {
 			try {
 				
 				ClassWriter cw = new HackyClassWriter(cr, ClassWriter.COMPUTE_MAXS);
-
 				cr.accept(
 				//							new CheckClassAdapter(
 						new SerialVersionUIDAdder(new TaintTrackingClassVisitor(cw, skipFrames, fields))
 						//									)
 						, ClassReader.EXPAND_FRAMES);
 				
-
 				if (DEBUG) {
-					File debugDir = new File("debug");
+					File debugDir = new File("/tmp/debug");
 					if (!debugDir.exists())
 						debugDir.mkdir();
-					File f = new File("debug/" + className.replace("/", ".") + ".class");
+					File f = new File("/tmp/debug/" + className.replace("/", ".") + ".class");
+					System.out.println(f.getAbsolutePath());
 					FileOutputStream fos = new FileOutputStream(f);
 					fos.write(cw.toByteArray());
 					fos.close();
@@ -235,7 +235,8 @@ public class PreMain {
 //					t.printStackTrace();
 //				}
 //				System.out.println("Succeeded w " + className);
-				return cw.toByteArray();
+				byte[] toRet = cw.toByteArray();
+				return toRet;
 			} catch (Throwable ex) {
 				ex.printStackTrace();
 				cv= new TraceClassVisitor(null,null);
@@ -253,7 +254,7 @@ public class PreMain {
 				if (!innerException) {
 					PrintWriter pw = null;
 					try {
-						pw = new PrintWriter(new FileWriter("lastClass.txt"));
+						pw = new PrintWriter(new FileWriter("/tmp/lastClass.txt"));
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -262,7 +263,7 @@ public class PreMain {
 					pw.flush();
 				}
 				System.out.println("Saving " + className);
-					File f = new File("debug/"+className.replace("/", ".")+".class");
+					File f = new File("/tmp/debug/"+className.replace("/", ".")+".class");
 					try{
 					FileOutputStream fos = new FileOutputStream(f);
 					fos.write(classfileBuffer);

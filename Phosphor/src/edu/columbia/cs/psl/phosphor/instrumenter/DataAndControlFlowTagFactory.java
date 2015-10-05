@@ -34,6 +34,8 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 	public void generateEmptyTaintArray(Object[] array, int dims) {
 
 	}
+	
+	public static boolean IGNORE_TAINT_FOR_INSTANCEOF = true;
 
 	@Override
 	public void intOp(int opcode, int arg, MethodVisitor mv, LocalVariableManager lvs, TaintPassingMV adapter) {
@@ -750,24 +752,36 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 					//TA A
 					mv.visitInsn(SWAP);
 					if (Configuration.MULTI_TAINTING) {
-						mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintObj", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-						mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
-					} else
+						if(IGNORE_TAINT_FOR_INSTANCEOF) {
+							mv.visitInsn(Configuration.NULL_TAINT_LOAD_OPCODE);
+							mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
+						} else {
+							mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintObj", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+							mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
+						}
+					} else {
 						mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintInt", "(Ljava/lang/Object;)I", false);
+					}
 					mv.visitInsn(SWAP);
 				}
-				if (!loaded) {
+				if(!loaded && !IGNORE_TAINT_FOR_INSTANCEOF) {
 					mv.visitInsn(DUP);
 				}
 				mv.visitTypeInsn(opcode, type);
 				if (!loaded) {
 					//O I
-					mv.visitInsn(SWAP);
 					if (Configuration.MULTI_TAINTING) {
-						mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintObj", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-						mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
-					} else
+						if(IGNORE_TAINT_FOR_INSTANCEOF) {
+							mv.visitInsn(Configuration.NULL_TAINT_LOAD_OPCODE);
+							mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
+						} else {
+							mv.visitInsn(SWAP);
+							mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintObj", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+							mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
+						}
+					} else {
 						mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintInt", "(Ljava/lang/Object;)I", false);
+					}
 					mv.visitInsn(SWAP);
 				}
 				if (doIOR) {
