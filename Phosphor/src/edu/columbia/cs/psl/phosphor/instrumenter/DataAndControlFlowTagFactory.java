@@ -753,6 +753,7 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 					mv.visitInsn(SWAP);
 					if (Configuration.MULTI_TAINTING) {
 						if(IGNORE_TAINT_FOR_INSTANCEOF) {
+							mv.visitInsn(POP);
 							mv.visitInsn(Configuration.NULL_TAINT_LOAD_OPCODE);
 							mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
 						} else {
@@ -780,6 +781,7 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 							mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
 						}
 					} else {
+						mv.visitInsn(SWAP);
 						mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintInt", "(Ljava/lang/Object;)I", false);
 					}
 					mv.visitInsn(SWAP);
