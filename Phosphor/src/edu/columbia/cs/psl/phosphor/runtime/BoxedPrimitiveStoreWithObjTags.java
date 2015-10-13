@@ -1,5 +1,7 @@
 package edu.columbia.cs.psl.phosphor.runtime;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.WeakHashMap;
 
 import edu.columbia.cs.psl.phosphor.struct.TaintedBooleanWithObjTag;
@@ -8,7 +10,7 @@ import edu.columbia.cs.psl.phosphor.struct.TaintedCharWithObjTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedShortWithObjTag;
 
 public class BoxedPrimitiveStoreWithObjTags {
-	public static WeakHashMap<Object, Object> tags = new WeakHashMap<Object, Object>();
+	public static Map<Object, Object> tags = Collections.synchronizedMap(new WeakHashMap<Object, Object>());
 
 	public static TaintedBooleanWithObjTag booleanValue(Boolean z) {
 		TaintedBooleanWithObjTag ret = new TaintedBooleanWithObjTag();

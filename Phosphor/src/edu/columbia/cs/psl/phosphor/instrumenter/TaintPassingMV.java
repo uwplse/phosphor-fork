@@ -609,12 +609,13 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 
 						FrameNode fn = getCurrentFrameNode();
 						super.visitInsn(DUP);
-						if(!ignoreLoadingNextTaint && !isIgnoreAllInstrumenting)
-						super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+						if(!ignoreLoadingNextTaint && !isIgnoreAllInstrumenting) {
+							super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+						}
 						super.visitJumpInsn(IFNULL, isNull);
-						if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting)
-						super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
-
+						if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting) {
+							super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+						}
 						//		System.out.println("unbox: " + onStack + " type passed is " + type);
 						super.visitFieldInsn(GETFIELD, newType.getInternalName(), "val", descType.getDescriptor());
 						super.visitJumpInsn(GOTO, isDone);
@@ -678,8 +679,9 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 					super.visitInsn(SWAP);
 					super.visitFieldInsn(opcode, owner, name, desc);
 				}
-			} else
+			} else {
 				super.visitFieldInsn(opcode, owner, name, desc);
+			}
 			break;
 		case Opcodes.PUTSTATIC:
 			if (getTopOfStackType().getSort() == Type.OBJECT && descType.getSort() == Type.ARRAY && descType.getDimensions() == 1 && descType.getElementType().getSort() != Type.OBJECT)

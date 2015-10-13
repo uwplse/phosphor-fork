@@ -3,6 +3,7 @@ Trishul
 artifact
 exp2
 experiments
+jvm-inst
 
 # Package Files #
 *.jar

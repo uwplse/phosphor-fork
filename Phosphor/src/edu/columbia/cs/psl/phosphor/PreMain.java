@@ -152,18 +152,23 @@ public class PreMain {
 			if (cn.visibleAnnotations != null)
 				for (AnnotationNode an : cn.visibleAnnotations) {
 					if (an.desc.equals(Type.getDescriptor(TaintInstrumented.class))) {
+//						System.out.println("Found annotation for: "  + className2);
 						return classfileBuffer;
 					}
 				}
 			if(cn.interfaces != null)
 				for(String s : cn.interfaces)
 				{
-					if(s.equals(Type.getInternalName(TaintedWithObjTag.class)) || s.equals(Type.getInternalName(TaintedWithIntTag.class)))
+					if(s.equals(Type.getInternalName(TaintedWithObjTag.class)) || s.equals(Type.getInternalName(TaintedWithIntTag.class))) {
+						System.out.println("Skipping instrumentation because we found interface for: "  + className2);
 						return classfileBuffer;
+					}
 				}
 			for(MethodNode mn : cn.methods)
-				if(mn.name.equals("getPHOSPHOR_TAG"))
+				if(mn.name.equals("getPHOSPHOR_TAG")) {
+					System.out.println("Skipping instrumentation because we found get* method for: " + className2);
 					return classfileBuffer;
+				}
 			List<FieldNode> fields = cn.fields;
 			if (skipFrames)
 			{

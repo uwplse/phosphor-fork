@@ -127,8 +127,10 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 			generateHashCode = true;
 		}
 		isNormalClass = (access & Opcodes.ACC_ENUM) == 0 && (access & Opcodes.ACC_INTERFACE) == 0;
+		
+		this.actuallyAddField = name.equals("java/lang/Integer") || name.equals("java/lang/Long") || name.equals("java/lang/Double") || name.equals("java/lang/String");
 
-		if (isNormalClass && !Instrumenter.isIgnoredClass(name) && !FIELDS_ONLY) {
+		if (isNormalClass && !Instrumenter.isIgnoredClass(name) && !FIELDS_ONLY && actuallyAddField) {
 			String[] newIntfcs = new String[interfaces.length + 1];
 			System.arraycopy(interfaces, 0, newIntfcs, 0, interfaces.length);
 			newIntfcs[interfaces.length] = Type.getInternalName((Configuration.MULTI_TAINTING ? TaintedWithObjTag.class : TaintedWithIntTag.class));
@@ -164,50 +166,11 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 		}
 		this.className = name;
 		
-		this.actuallyAddField = name.equals("java/lang/Integer") || name.equals("java/lang/Long") || name.equals("java/lang/Double") || name.equals("java/lang/String");
 	}
 
 	boolean generateHashCode = false;
 	boolean generateEquals = false;
 	boolean isProxyClass = false;
-
-	private void collectUninstrumentedInterfaceMethods(String[] interfaces) {
-		String superToCheck;
-		if (interfaces != null) {
-			for (String itfc : interfaces) {
-				superToCheck = itfc;
-				try {
-					ClassNode cn = Instrumenter.classes.get(superToCheck);
-					if (cn != null) {
-						String[] s = new String[cn.interfaces.size()];
-						s = cn.interfaces.toArray(s);
-						collectUninstrumentedInterfaceMethods(s);
-						continue;
-					}
-					Class c = Class.forName(superToCheck.replace("/", "."),false,Instrumenter.loader);
-					if (Instrumenter.isIgnoredClass(superToCheck)) {
-						for (Method m : c.getDeclaredMethods()) {
-							if (!Modifier.isPrivate(m.getModifiers())) {
-								superMethodsToOverride.put(m.getName() + Type.getMethodDescriptor(m), m);
-							}
-						}
-					}
-					Class[] in = c.getInterfaces();
-					if (in != null && in.length > 0) {
-						String[] s = new String[in.length];
-						for (int i = 0; i < in.length; i++) {
-							s[i] = Type.getInternalName(in[i]);
-						}
-						collectUninstrumentedInterfaceMethods(s);
-					}
-				} catch (Exception ex) {
-					//						ex.printStackTrace();
-					break;
-				}
-
-			}
-		}
-	}
 
 	private HashMap<String, Method> superMethodsToOverride = new HashMap<String, Method>();
 	HashMap<MethodNode, MethodNode> forMore = new HashMap<MethodNode, MethodNode>();
@@ -531,14 +494,14 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 		}
 		if (addTaintMethod) {
 			if (isInterface) {
-				super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "get" + TaintUtils.TAINT_FIELD, "()"+(Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I"), null, null);
-				if(GEN_HAS_TAINTS_METHOD)
-					super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "hasAnyTaints", "()Z", null, null);
-				super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "set" + TaintUtils.TAINT_FIELD, "("+(Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I")+")V", null, null);
+//				super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "get" + TaintUtils.TAINT_FIELD, "()"+(Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I"), null, null);
+//				if(GEN_HAS_TAINTS_METHOD)
+//					super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "hasAnyTaints", "()Z", null, null);
+//				super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "set" + TaintUtils.TAINT_FIELD, "("+(Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I")+")V", null, null);
 			} else {
 				MethodVisitor mv;
 				if(!actuallyAddField) {
-					mv = super.visitMethod(Opcodes.ACC_PUBLIC, "get" + TaintUtils.TAINT_FIELD, "()"+(Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I"), null, null);
+					/*mv = super.visitMethod(Opcodes.ACC_PUBLIC, "get" + TaintUtils.TAINT_FIELD, "()"+(Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I"), null, null);
 					mv.visitCode();
 					mv.visitTypeInsn(Opcodes.NEW, Type.getInternalName(UnsupportedOperationException.class));
 					mv.visitInsn(Opcodes.DUP);
@@ -554,7 +517,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 					mv.visitMethodInsn(Opcodes.INVOKESPECIAL, Type.getInternalName(UnsupportedOperationException.class), "<init>", "()V", false);
 					mv.visitInsn(Opcodes.ATHROW);
 					mv.visitMaxs(0, 0);
-					mv.visitEnd();
+					mv.visitEnd();*/
 				} else if (!Configuration.MULTI_TAINTING) {
 					mv = super.visitMethod(Opcodes.ACC_PUBLIC, "get" + TaintUtils.TAINT_FIELD, "()" + (Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I"), null, null);
 					mv.visitCode();

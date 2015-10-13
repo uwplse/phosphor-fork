@@ -582,7 +582,7 @@ public class TaintUtils {
 				r += MultiDTaintedArray.getTypeForType(t);
 			}
 			else
-				r += t;
+				r += t.getDescriptor();
 		}
 		if(Configuration.IMPLICIT_TRACKING)
 			r += Type.getDescriptor(ControlTaintTagStack.class);
