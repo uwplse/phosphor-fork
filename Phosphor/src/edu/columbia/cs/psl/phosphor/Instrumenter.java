@@ -17,6 +17,7 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -813,6 +814,13 @@ public class Instrumenter {
 
 	public static void processJar(File f, File outputDir) {
 		try {
+			if(f.getName().endsWith("staccato.jar")) {
+				System.out.println("skipping staccato");
+				try(FileOutputStream fos = new FileOutputStream(outputDir.getPath() + File.separator + f.getName())) { 
+					Files.copy(Paths.get(f.getCanonicalPath()), fos);
+				}
+				return;
+			}
 			// @SuppressWarnings("resource")
 			// System.out.println("File: " + f.getName());
 			JarFile jar = new JarFile(f);
@@ -990,7 +998,7 @@ public class Instrumenter {
 						}
 					}
 
-				} else if (e.getName().endsWith(".jar")) {
+				} else if (e.getName().endsWith(".jar") && !e.getName().endsWith("staccato.jar")) {
 					ZipEntry outEntry = new ZipEntry(e.getName());
 					// jos.putNextEntry(outEntry);
 					// try {

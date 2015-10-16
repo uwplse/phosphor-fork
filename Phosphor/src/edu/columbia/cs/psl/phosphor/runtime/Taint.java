@@ -107,6 +107,10 @@ public final class Taint implements Cloneable{
 	{
 		if(obj == null || t1 == null || IGNORE_TAINTING)
 			return;
+		if(Configuration.taintCombiner != null) {
+			Configuration.taintCombiner.combineTagsInPlace(obj, t1);
+			return;
+		}
 		Taint t = (Taint) TaintUtils.getTaintObj(obj);
 		if(t == null)
 		{
@@ -117,6 +121,9 @@ public final class Taint implements Cloneable{
 	}
 	public static Taint combineTags(Taint t1, Taint t2)
 	{
+		if(Configuration.taintCombiner != null) {
+			return Configuration.taintCombiner.combineTags(t1, t2);
+		}
 		if(t1 == null && t2 == null)
 			return null;
 		if(t2 == null)

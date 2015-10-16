@@ -95,7 +95,8 @@ public class PrimitiveBoxingFixer extends TaintAdapter implements Opcodes {
 		else if ((owner.equals(Type.getInternalName(Integer.class))
 		//				|| owner.equals(Type.getInternalName(Byte.class))
 		//				|| owner.equals(Type.getInternalName(Character.class))
-		//				|| owner.equals(Type.getInternalName(Short.class)) ||  owner.equals(Type.getInternalName(Float.class)) 
+		//				|| owner.equals(Type.getInternalName(Short.class))
+				||  owner.equals(Type.getInternalName(Float.class)) 
 				|| owner.equals(Type.getInternalName(Long.class)) || owner.equals(Type.getInternalName(Double.class))) && name.equals("valueOf$$PHOSPHORTAGGED") && nArgs == 2 && !argIsStr) {
 			Type argT = Type.getArgumentTypes(desc)[1];
 			int argSize = argT.getSize();

@@ -128,7 +128,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 		}
 		isNormalClass = (access & Opcodes.ACC_ENUM) == 0 && (access & Opcodes.ACC_INTERFACE) == 0;
 		
-		this.actuallyAddField = name.equals("java/lang/Integer") || name.equals("java/lang/Long") || name.equals("java/lang/Double") || name.equals("java/lang/String");
+		this.actuallyAddField = name.equals("java/lang/Integer") || name.equals("java/lang/Long") || name.equals("java/lang/Double") || name.equals("java/lang/String") || name.equals("java/lang/Float");
 
 		if (isNormalClass && !Instrumenter.isIgnoredClass(name) && !FIELDS_ONLY && actuallyAddField) {
 			String[] newIntfcs = new String[interfaces.length + 1];
