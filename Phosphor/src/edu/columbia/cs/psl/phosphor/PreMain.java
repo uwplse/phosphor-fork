@@ -1,9 +1,11 @@
 package edu.columbia.cs.psl.phosphor;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
@@ -130,7 +132,23 @@ public class PreMain {
 			return ret;
 		}
 		
+		private static void dumpClass(String className, byte[] buffer) throws IOException {
+			if (DEBUG) {
+				File debugDir = new File("/tmp/debug");
+				if (!debugDir.exists())
+					debugDir.mkdir();
+				File f = new File("/tmp/debug/" + className.replace("/", ".") + ".class");
+				System.out.println(f.getAbsolutePath());
+				try(FileOutputStream fos = new FileOutputStream(f)) {
+					fos.write(buffer);
+				}
+			}
+		}
+		
+		public static boolean didIt = false;
+		
 		public byte[] transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+//			System.out.println("LOADING: "  + className2);
 			
 			ClassReader cr = new ClassReader(classfileBuffer);
 			String className = cr.getClassName();
@@ -138,7 +156,7 @@ public class PreMain {
 
 			if(Instrumenter.isIgnoredClass(className))
 			{
-//				System.out.println("Premain.java ignore: " + className);
+				System.out.println("Premain.java ignore: " + className);
 				return classfileBuffer;
 			}
 //			if(className.equals("java/lang/Integer"))
@@ -195,17 +213,7 @@ public class PreMain {
 						new SerialVersionUIDAdder(new TaintTrackingClassVisitor(cw, skipFrames, fields))
 						//									)
 						, ClassReader.EXPAND_FRAMES);
-				
-				if (DEBUG) {
-					File debugDir = new File("/tmp/debug");
-					if (!debugDir.exists())
-						debugDir.mkdir();
-					File f = new File("/tmp/debug/" + className.replace("/", ".") + ".class");
-					System.out.println(f.getAbsolutePath());
-					FileOutputStream fos = new FileOutputStream(f);
-					fos.write(cw.toByteArray());
-					fos.close();
-				}
+					dumpClass(className, cw.toByteArray());
 				{
 //					if(TaintUtils.DEBUG_FRAMES)
 //						System.out.println("NOW IN CHECKCLASSADAPTOR");
