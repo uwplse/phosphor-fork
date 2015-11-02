@@ -887,7 +887,30 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 
 	@Override
 	public boolean isIgnoredClass(String classname) {
-		return classname.startsWith("edu/washington/cse/instrumentation/runtime") && !classname.startsWith("edu/washington/cse/instrument/test");
+		return classname.startsWith("edu/washington/cse/instrumentation/runtime") && !classname.startsWith("edu/washington/cse/instrument/test") 
+			&& !classname.equals("edu/washington/cse/instrumentation/runtime/StaccatoRuntime");
 	}
 
+	@Override
+	public void handleIgnoredStaticCall(String owner, String name, String desc,
+			MethodVisitor mv) {
+		if(!(owner.equals("java/lang/Byte") || owner.equals("java/lang/Short") || owner.equals("java/lang/Boolean"))) {
+			mv.visitMethodInsn(INVOKESTATIC, owner, name, desc, false);
+			return;
+		}
+		if(name.startsWith("parse")) {
+			mv.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/StaccatoRuntime", name, desc, false);
+		} else if(name.equals("valueOf")) {
+			String className = owner.substring(owner.lastIndexOf('/') + 1);
+			mv.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/StaccatoRuntime", name + className, desc, false);
+		} else {
+			mv.visitMethodInsn(INVOKESTATIC, owner, name, desc, false);
+		}
+	}
+
+	@Override
+	public boolean isIgnoredMethod(String owner, String name, String desc) {
+		return owner.equals("edu/washington/cse/instrumentation/runtime/StaccatoRuntime") && 
+				(name.equals("propagateReflection") || name.equals("commit"));
+	}
 }

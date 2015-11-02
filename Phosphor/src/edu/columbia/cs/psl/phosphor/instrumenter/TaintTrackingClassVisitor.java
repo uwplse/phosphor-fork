@@ -321,7 +321,8 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 			}
 
 			MethodArgReindexer mar = new MethodArgReindexer(nextMV, access, name, newDesc, desc, wrapper);
-			PrimitiveArrayAnalyzer primitiveArrayFixer = new PrimitiveArrayAnalyzer(className, access, name, desc, signature, exceptions, mar);
+			CallRewritingMethodVisitor crmv = new CallRewritingMethodVisitor(className, access, name, desc, signature, exceptions, mar);
+			PrimitiveArrayAnalyzer primitiveArrayFixer = new PrimitiveArrayAnalyzer(className, access, name, desc, signature, exceptions, crmv);
 			NeverNullArgAnalyzerAdapter preAnalyzer = new NeverNullArgAnalyzerAdapter(className, access, name, desc, primitiveArrayFixer);
 
 			MethodVisitor mvNext = preAnalyzer;

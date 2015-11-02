@@ -1136,6 +1136,9 @@ public class Instrumenter {
 	}
 
 	public static boolean isIgnoredMethod(String owner, String name, String desc) {
+		if(Configuration.taintTagFactory.isIgnoredMethod(owner, name, desc)) {
+			return true;
+		}
 		if (name.equals("wait") && desc.equals("(J)V"))
 			return true;
 		if (name.equals("wait") && desc.equals("(JI)V"))
