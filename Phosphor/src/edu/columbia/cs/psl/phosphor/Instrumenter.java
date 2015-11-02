@@ -688,7 +688,7 @@ public class Instrumenter {
 		}
 		if (f.isDirectory())
 			processDirectory(f, rootOutputDir, true);
-		else if (inputFolder.endsWith(".jar") || inputFolder.endsWith(".war")) {
+		else if (inputFolder.endsWith(".jar")) {
 			// try {
 			// FileOutputStream fos = new FileOutputStream(rootOutputDir.getPath() +
 			// File.separator + f.getName());
@@ -697,6 +697,8 @@ public class Instrumenter {
 		// // TODO Auto-generated catch block
 		// e1.printStackTrace();
 		// }
+		} else if(inputFolder.endsWith(".war")) {
+			processZip(f, rootOutputDir);
 		} else if (inputFolder.endsWith(".class"))
 			try {
 				processClass(f.getName(), new FileInputStream(f), rootOutputDir);
@@ -761,7 +763,7 @@ public class Instrumenter {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			else if (fi.getName().endsWith(".jar") || fi.getName().endsWith(".war"))
+			else if (fi.getName().endsWith(".jar")) {
 				// try {
 				// FileOutputStream fos = new FileOutputStream(thisOutputDir.getPath() +
 				// File.separator + f.getName());
@@ -771,9 +773,11 @@ public class Instrumenter {
 			// TODO Auto-generated catch block
 			// e1.printStackTrace();
 			// }
-			else if (fi.getName().endsWith(".zip"))
+			} else if (fi.getName().endsWith(".war")) {
+				processZip(fi, thisOutputDir);	
+			} else if (fi.getName().endsWith(".zip")) {
 				processZip(fi, thisOutputDir);
-			else {
+			} else {
 				File dest = new File(thisOutputDir.getPath() + File.separator
 						+ fi.getName());
 				FileChannel source = null;

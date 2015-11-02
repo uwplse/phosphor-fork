@@ -5,7 +5,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
@@ -199,7 +198,7 @@ public class PreMain {
 						return new JSRInlinerAdapter(super.visitMethod(access, name, desc, signature, exceptions), access, name, desc, signature, exceptions);
 					}
 				}, 0);
-				cr = new ClassReader(cw.toByteArray());
+				cr = new ClassReader(fixupFrames(cw.toByteArray()));
 			}
 //			System.out.println("Instrumenting: " + className);
 //			System.out.println(classBeingRedefined);
@@ -290,6 +289,37 @@ public class PreMain {
 					return new byte[0];
 
 			}
+		}
+		private byte[] fixupFrames(byte[] byteArray) {
+			ClassReader cr = new ClassReader(byteArray);
+			ClassWriter cw = new ClassWriter(cr, 0);
+			ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, cw) {
+				@Override
+				public MethodVisitor visitMethod(int access, String name, final String desc,
+						String signature, String[] exceptions) {
+					MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+					final boolean isStatic = (access & Opcodes.ACC_STATIC) != 0;
+					final int argOffset = isStatic ? 0 : 1;
+					final Type[] argTypes = Type.getArgumentTypes(desc);
+					final int numArgs = argTypes.length; 
+					return new MethodVisitor(Opcodes.ASM5, mv) {
+						@Override
+						public void visitFrame(int type, int nLocal, Object[] local,
+								int nStack, Object[] stack) {
+							for(int i = 0; i < numArgs; i++) {
+								if(local[i + argOffset] instanceof String) {
+									if(argTypes[i].getSort() == Type.OBJECT && argTypes[i].getClassName().equals("java.lang.Object")) {
+										local[i + argOffset] = argTypes[i].getInternalName();
+									}
+								}
+							}
+							super.visitFrame(type, nLocal, local, nStack, stack);
+						}
+					};
+				}
+			};
+			cr.accept(cv, ClassReader.EXPAND_FRAMES);
+			return cw.toByteArray();
 		}
 	}
 	
