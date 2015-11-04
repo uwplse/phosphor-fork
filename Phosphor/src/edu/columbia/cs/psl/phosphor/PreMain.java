@@ -146,10 +146,9 @@ public class PreMain {
 		
 		public static boolean didIt = false;
 		
-		public byte[] transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
-//			System.out.println("LOADING: "  + className2);
-			
+		public byte[] transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {		
 			ClassReader cr = new ClassReader(classfileBuffer);
+			
 			String className = cr.getClassName();
 			innerException = false;
 

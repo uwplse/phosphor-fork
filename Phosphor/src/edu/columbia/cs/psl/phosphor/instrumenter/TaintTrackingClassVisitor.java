@@ -32,6 +32,7 @@ import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.LabelNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.LocalVariableNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.MethodNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.ParameterNode;
+import edu.columbia.cs.psl.phosphor.runtime.BoxedPrimitiveStoreWithObjTags;
 import edu.columbia.cs.psl.phosphor.runtime.NativeHelper;
 import edu.columbia.cs.psl.phosphor.runtime.TaintChecker;
 import edu.columbia.cs.psl.phosphor.runtime.TaintInstrumented;
@@ -178,6 +179,14 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 	public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
 		if (TaintUtils.DEBUG_CALLS || TaintUtils.DEBUG_FIELDS || TaintUtils.DEBUG_FRAMES || TaintUtils.DEBUG_LOCAL)
 			System.out.println("Instrumenting " + name + "\n\n\n\n\n\n");
+		
+		if(name.endsWith(TaintUtils.METHOD_SUFFIX)) {
+			return super.visitMethod(access, name, desc, signature, exceptions);
+		}
+		if(Configuration.taintTagFactory.isIgnoredMethod(className, name, desc)) {
+			return super.visitMethod(access, name, desc, signature, exceptions); 
+		}
+		
 		superMethodsToOverride.remove(name + desc);
 
 		if(Instrumenter.IS_KAFFE_INST && className.equals("java/lang/VMSystem"))
@@ -387,10 +396,11 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 	public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
 		Type fieldType = Type.getType(desc);
 		if (TaintUtils.getShadowTaintType(desc) != null) {
-			if(TaintAdapter.canRawTaintAccess(className))
+			if(TaintAdapter.canRawTaintAccess(className) || (access & Opcodes.ACC_STATIC) != 0) {
 				extraFieldsToVisit.add(new FieldNode(access, name + TaintUtils.TAINT_FIELD, TaintUtils.getShadowTaintType(desc), null, null));
-			else
+			} else {
 				extraFieldsToVisit.add(new FieldNode(access,  name+TaintUtils.TAINT_FIELD, (fieldType.getSort() == Type.ARRAY ? "[":"")+TaintAdapter.getTagType(className).getDescriptor(), null, null));
+			}
 		} else if (!FIELDS_ONLY && fieldType.getSort() == Type.ARRAY && fieldType.getElementType().getSort() != Type.OBJECT && fieldType.getDimensions() > 1) {
 			desc = MultiDTaintedArray.getTypeForType(fieldType).getDescriptor();
 		}
@@ -419,10 +429,11 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 		}
 		//Add a field to track the instance's taint
 		if (addTaintField && !goLightOnGeneratedStuff && this.actuallyAddField) {
-			if(!Configuration.MULTI_TAINTING)
+			if(!Configuration.MULTI_TAINTING) {
 				super.visitField(Opcodes.ACC_PUBLIC, TaintUtils.TAINT_FIELD, "I", null, 0);
-			else
-				super.visitField(Opcodes.ACC_PUBLIC, TaintUtils.TAINT_FIELD, TaintAdapter.getTagType(className).getDescriptor(), null, null);				
+			} else {
+				super.visitField(Opcodes.ACC_PUBLIC & Opcodes.ACC_VOLATILE, TaintUtils.TAINT_FIELD, TaintAdapter.getTagType(className).getDescriptor(), null, null);
+			}
 //			if(GEN_HAS_TAINTS_METHOD){
 //			super.visitField(Opcodes.ACC_PUBLIC, TaintUtils.HAS_TAINT_FIELD, "Z", null, 0);
 //			super.visitField(Opcodes.ACC_PUBLIC, TaintUtils.IS_TAINT_SEATCHING_FIELD, "Z", null, 0);
@@ -544,6 +555,46 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 					mv.visitInsn(Opcodes.RETURN);
 					mv.visitMaxs(0, 0);
 					mv.visitEnd();
+				} else if(Configuration.MULTI_TAINTING && !TaintAdapter.canRawTaintAccess(className) && !className.equals("java/lang/StackTraceElement")) {
+					assert className.equals("java/lang/Float") ||	className.equals("java/lang/Double") ||className.equals("java/lang/Integer") ||	className.equals("java/lang/Long");
+					{
+						mv = super.visitMethod(Opcodes.ACC_PUBLIC, "get" + TaintUtils.TAINT_FIELD, "()" + "Ljava/lang/Object;", null, null);
+						mv.visitCode();
+						mv.visitVarInsn(Opcodes.ALOAD, 0);
+						mv.visitFieldInsn(Opcodes.GETFIELD, className, "value" + TaintUtils.TAINT_FIELD, "I");
+						Label l0 = new Label();
+						mv.visitJumpInsn(Opcodes.IFNE, l0);
+						mv.visitInsn(Opcodes.ACONST_NULL);
+						mv.visitInsn(Opcodes.ARETURN);
+						mv.visitLabel(l0);
+						mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+						mv.visitVarInsn(Opcodes.ALOAD, 0);
+						mv.visitInsn(Opcodes.ICONST_1);
+						mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(BoxedPrimitiveStoreWithObjTags.class), "getTaint", "(Ljava/lang/Object;I)Ljava/lang/Object;", false);
+						mv.visitInsn(Opcodes.ARETURN);
+						mv.visitMaxs(1, 2);
+						mv.visitEnd();
+					}
+					{
+						mv = super.visitMethod(Opcodes.ACC_PUBLIC, "set" + TaintUtils.TAINT_FIELD, "(" + (Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I") + ")V", null, null);
+						mv.visitCode();
+						mv.visitVarInsn(Opcodes.ALOAD, 1);
+						Label l0 = new Label();
+						mv.visitJumpInsn(Opcodes.IFNONNULL, l0);
+						mv.visitInsn(Opcodes.RETURN);
+						mv.visitLabel(l0);
+						mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+						mv.visitVarInsn(Opcodes.ALOAD, 0);
+						mv.visitVarInsn(Opcodes.ALOAD, 1);
+						mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(BoxedPrimitiveStoreWithObjTags.class), "putTaint", "(Ljava/lang/Object;Ljava/lang/Object;)I", false);
+						mv.visitInsn(Opcodes.POP);
+						mv.visitVarInsn(Opcodes.ALOAD, 0);
+						mv.visitInsn(Opcodes.ICONST_1);
+						mv.visitFieldInsn(Opcodes.PUTFIELD, className, "value" + TaintUtils.TAINT_FIELD, "I");
+						mv.visitInsn(Opcodes.RETURN);
+						mv.visitMaxs(2, 2);
+						mv.visitEnd();
+					}
 				} else {
 					mv = super.visitMethod(Opcodes.ACC_PUBLIC, "get" + TaintUtils.TAINT_FIELD, "()" + (Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I"), null, null);
 					mv = new TaintTagFieldCastMV(mv);
@@ -555,6 +606,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 					mv.visitEnd();
 
 					mv = super.visitMethod(Opcodes.ACC_PUBLIC, "set" + TaintUtils.TAINT_FIELD, "(" + (Configuration.MULTI_TAINTING ? "Ljava/lang/Object;" : "I") + ")V", null, null);
+					mv = new TaintTagFieldCastMV(mv);
 					mv.visitCode();
 					mv.visitVarInsn(Opcodes.ALOAD, 0);
 					mv.visitVarInsn(Opcodes.ALOAD, 1);

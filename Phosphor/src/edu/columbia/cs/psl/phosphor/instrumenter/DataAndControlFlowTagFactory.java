@@ -874,7 +874,8 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 			}
 			mv.visitVarInsn(ALOAD, shadowVar);
 			mv.visitVarInsn(ALOAD, lvs.idxOfMasterControlLV);
-			mv.visitMethodInsn(INVOKESTATIC, Configuration.MULTI_TAINT_HANDLER_CLASS, "combineTags", "(" + Configuration.TAINT_TAG_DESC + "Ledu/columbia/cs/psl/phosphor/struct/ControlTaintTagStack;)"
+			mv.visitMethodInsn(INVOKESTATIC, Configuration.MULTI_TAINT_HANDLER_CLASS, "combineTags", "("
+					+ Configuration.TAINT_TAG_DESC + "Ledu/columbia/cs/psl/phosphor/struct/ControlTaintTagStack;)"
 					+ Configuration.TAINT_TAG_DESC, false);
 			mv.visitVarInsn(ASTORE, shadowVar);
 
@@ -900,7 +901,7 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 		}
 		if(name.startsWith("parse")) {
 			mv.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/StaccatoRuntime", name, desc, false);
-		} else if(name.equals("valueOf")) {
+		} else if(name.equals("valueOf") && Type.getArgumentTypes(desc)[0].getSort() == Type.OBJECT) {
 			String className = owner.substring(owner.lastIndexOf('/') + 1);
 			mv.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/StaccatoRuntime", name + className, desc, false);
 		} else {
@@ -910,7 +911,22 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 
 	@Override
 	public boolean isIgnoredMethod(String owner, String name, String desc) {
-		return owner.equals("edu/washington/cse/instrumentation/runtime/StaccatoRuntime") && 
-				(name.equals("propagateReflection") || name.equals("commit"));
+		if(!owner.equals("edu/washington/cse/instrumentation/runtime/StaccatoRuntime")) {
+			return false;
+		}
+		if(!name.startsWith("valueOf") && !name.startsWith("parse")) {
+			return true;
+		}
+		Type argTypes[] = Type.getArgumentTypes(desc);
+		for(Type t : argTypes) {
+			if(t.getSort() != Type.OBJECT) {
+				return false;
+			}
+		}
+		if(Type.getReturnType(desc).getSort() != Type.OBJECT) {
+			return false;
+		}
+		// This is a valueOf method that does not have any primitive arguments or return types. Ignore it
+		return true;
 	}
 }

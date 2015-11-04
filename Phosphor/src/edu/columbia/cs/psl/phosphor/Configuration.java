@@ -45,6 +45,8 @@ public class Configuration {
 	public static boolean OPT_CONSTANT_ARITHMETIC = true && !IMPLICIT_TRACKING;
 	public static Class TAINT_TAG_OBJ_CLASS = (Taint.class);
 	public static Class TAINT_TAG_OBJ_ARRAY_CLASS = (Taint[].class);
+	public static int CHECK_NONNULL_TAINT_OPCODE = MULTI_TAINTING ? Opcodes.IFNONNULL : Opcodes.IFNE;
+
 	
 	public static TaintCombiner taintCombiner = null;
 
@@ -70,6 +72,7 @@ public class Configuration {
 		OPT_CONSTANT_ARITHMETIC = true && !IMPLICIT_TRACKING;
 		TAINT_TAG_OBJ_ARRAY_CLASS = (MULTI_TAINTING ? Taint[].class : int[].class);
 		TAINT_TAG_OBJ_CLASS = (MULTI_TAINTING ? Taint.class : Integer.TYPE);
+		CHECK_NONNULL_TAINT_OPCODE = (MULTI_TAINTING ? Opcodes.IFNONNULL : Opcodes.IFNE);
 
 
 		if (TaintTrackingClassVisitor.class != null && TaintTrackingClassVisitor.class.getClassLoader() != null) {
