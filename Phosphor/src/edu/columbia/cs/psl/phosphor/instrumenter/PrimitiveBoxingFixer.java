@@ -132,18 +132,18 @@ public class PrimitiveBoxingFixer extends TaintAdapter implements Opcodes {
 					fn2.accept(this);
 			} else {
 				//T V V <top>
-				super.visitInsn(DUP2_X1);
-				super.visitInsn(POP2);
+				super.visitInsn(DUP2_X1); // VV T VV
+				super.visitInsn(POP2); // VV T
 				//VV T
 				FrameNode fn = getCurrentFrameNode();
-				super.visitInsn(DUP);
+				super.visitInsn(DUP); // VV T T
 				Label makeNew = new Label();
 				Label isOK = new Label();
-				super.visitJumpInsn(IFNE, makeNew);
-				//T VV 
-				super.visitInsn(DUP_X2);
-				super.visitInsn(POP);
-				super.visitMethodInsn(opcode, owner, name, desc, false);
+				super.visitJumpInsn(Configuration.CHECK_NONNULL_TAINT_OPCODE, makeNew);
+				// VV T
+				super.visitInsn(DUP_X2); // T VV T
+				super.visitInsn(POP); // T VV
+				super.visitMethodInsn(opcode, owner, name, desc, false); // O
 				FrameNode fn2 = getCurrentFrameNode();
 				super.visitJumpInsn(GOTO, isOK);
 				super.visitLabel(makeNew);

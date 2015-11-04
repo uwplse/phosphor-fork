@@ -9,6 +9,8 @@ import java.io.PrintWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.security.ProtectionDomain;
 import java.util.List;
 
@@ -146,7 +148,60 @@ public class PreMain {
 		
 		public static boolean didIt = false;
 		
-		public byte[] transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {		
+		private static class StaccatoAccess {
+			private static Method _start = null;
+			private static Method _end = null;
+			
+			int start() {
+				if(_start != null) {
+					try {
+						boolean state = (Boolean)_start.invoke(null);
+						return state ? 1 : 0;
+					} catch (IllegalAccessException | IllegalArgumentException
+							| InvocationTargetException e) {
+						return -1;
+					}
+				}
+				return -1;
+			}
+			
+			void end(int flag) {
+				if(_end != null && flag != -1) {
+					try {
+						_end.invoke(null, flag == 1);
+					} catch (IllegalAccessException | IllegalArgumentException
+							| InvocationTargetException e) {
+					}
+				}
+			}
+			
+			static {
+				try {
+					Class<?> tKlass = Class.forName("edu.washington.cse.instrumentation.runtime.TaintHelper");
+					_start = tKlass.getMethod("__block_prop");
+					_end = tKlass.getMethod("__restore_prop", boolean.class);
+					System.out.println("Using staccato");
+				} catch (NoSuchMethodException | SecurityException | ClassNotFoundException e) {
+					_start = _end = null;
+				}
+			}
+			
+		}
+		
+		private static class StaccatoIntegration {
+			static StaccatoAccess sa = new StaccatoAccess();
+		}
+		
+		public byte[] transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+			int flag = StaccatoIntegration.sa.start();
+			try {
+				return transformInternal(loader, className2, classBeingRedefined, protectionDomain, classfileBuffer);
+			} finally {
+				StaccatoIntegration.sa.end(flag);
+			}
+		}
+		
+		public byte[] transformInternal(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
 			ClassReader cr = new ClassReader(classfileBuffer);
 			
 			String className = cr.getClassName();

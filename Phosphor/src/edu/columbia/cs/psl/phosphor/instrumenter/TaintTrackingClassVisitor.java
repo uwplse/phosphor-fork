@@ -150,7 +150,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 		}
 		super.visit(version, access, name, signature, superName, interfaces);
 		
-		if(Instrumenter.isIgnoredClass(superName))
+		if(Instrumenter.isIgnoredClass(superName) && !isInterface)
 		{
 			//Might need to override stuff.
 			Class c;
