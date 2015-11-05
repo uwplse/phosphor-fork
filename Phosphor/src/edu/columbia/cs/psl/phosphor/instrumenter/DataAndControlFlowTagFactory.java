@@ -888,6 +888,9 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 
 	@Override
 	public boolean isIgnoredClass(String classname) {
+		if(classname.startsWith("edu/washington/cse/instrumentation/runtime/TaintCarry$$")) {
+			return false;
+		}
 		return classname.startsWith("edu/washington/cse/instrumentation/runtime") && !classname.startsWith("edu/washington/cse/instrument/test") 
 			&& !classname.equals("edu/washington/cse/instrumentation/runtime/StaccatoRuntime");
 	}

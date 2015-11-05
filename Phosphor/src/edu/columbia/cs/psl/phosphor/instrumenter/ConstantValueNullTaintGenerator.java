@@ -300,12 +300,12 @@ public class ConstantValueNullTaintGenerator extends MethodVisitor implements Op
 											case Type.SHORT:
 //												String taintDesc = t.getDescriptor().substring(0, t.getDescriptor().length() - 1) + "I";
 												if (t.getDimensions() > 1) {
-													uninstrumented.instructions.insertBefore(fin, new IntInsnNode(Opcodes.BIPUSH, t.getSort()));
+													/*uninstrumented.instructions.insertBefore(fin, new IntInsnNode(Opcodes.BIPUSH, t.getElementType().getSort()));
 													uninstrumented.instructions.insertBefore(fin, new IntInsnNode(Opcodes.BIPUSH, t.getDimensions()));
 													uninstrumented.instructions.insertBefore(fin, new MethodInsnNode(Opcodes.INVOKESTATIC, Type.getInternalName((Configuration.MULTI_TAINTING ? MultiDTaintedArrayWithObjTag.class : MultiDTaintedArrayWithIntTag.class)),
-															"initWithEmptyTaints", "([Ljava/lang/Object;II)[Ljava/lang/Object;",false));
-													uninstrumented.instructions.insertBefore(fin, new TypeInsnNode(Opcodes.CHECKCAST, t.getDescriptor()));
-
+															"initWithEmptyTaints", "([Ljava/lang/Object;II)Ljava/lang/Object;",false));
+													uninstrumented.instructions.insertBefore(fin, new TypeInsnNode(Opcodes.CHECKCAST, MultiDTaintedArray.getTypeForType(Type.getType(fin.desc)).getDescriptor()));
+													*/
 													fin.desc = MultiDTaintedArray.getTypeForType(Type.getType(fin.desc)).getDescriptor();
 												} else {
 													uninstrumented.instructions.insertBefore(insn, new InsnNode(Opcodes.DUP));
