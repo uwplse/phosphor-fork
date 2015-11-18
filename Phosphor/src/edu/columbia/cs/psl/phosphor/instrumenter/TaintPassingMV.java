@@ -884,11 +884,13 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 		FrameNode fn = getCurrentFrameNode();
 
 		super.visitInsn(DUP);
-		if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting)
-		super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+		if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting) {
+			super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+		}
 		super.visitJumpInsn(IFNULL, isNull);
-		if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting)
-		super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+		if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting) {
+			super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+		}
 
 		//		System.out.println("unbox: " + onStack + " type passed is " + type);
 

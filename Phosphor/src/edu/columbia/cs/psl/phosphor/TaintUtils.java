@@ -632,7 +632,7 @@ public class TaintUtils {
 	{
 		return (Object[]) Array.newInstance(Configuration.TAINT_TAG_OBJ_CLASS, len);
 	}
-	static Cloner cloner = null;
+	static volatile Cloner cloner = null;
 
 	public static <T extends Enum<T>> T enumValueOf(Class<T> enumType, String name) {
 		T ret = Enum.valueOf(enumType, name);
