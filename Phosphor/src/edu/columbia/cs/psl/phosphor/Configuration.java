@@ -3,11 +3,10 @@ package edu.columbia.cs.psl.phosphor;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Properties;
-import java.util.Scanner;
 
-import edu.columbia.cs.psl.phosphor.instrumenter.TaintTagFactory;
 import edu.columbia.cs.psl.phosphor.instrumenter.DataAndControlFlowTagFactory;
 import edu.columbia.cs.psl.phosphor.instrumenter.TaintAdapter;
+import edu.columbia.cs.psl.phosphor.instrumenter.TaintTagFactory;
 import edu.columbia.cs.psl.phosphor.instrumenter.TaintTrackingClassVisitor;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
 import edu.columbia.cs.psl.phosphor.runtime.DerivedTaintListener;
@@ -24,6 +23,8 @@ public class Configuration {
 
 	public static boolean WITHOUT_PROPOGATION = false;
 	public static boolean WITHOUT_FIELD_HIDING = false;
+	
+	public static boolean AUTO_TAINT = false;
 	
 	/*
 	 * Derived configuration values
