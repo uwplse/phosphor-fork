@@ -175,7 +175,7 @@ public class PreMain {
 			
 			static {
 				try {
-					Class<?> tKlass = Class.forName("edu.washington.cse.instrumentation.runtime.TaintHelper");
+					Class<?> tKlass = Class.forName("edu.washington.cse.instrumentation.runtime.TaintPropagation");
 					_start = tKlass.getMethod("__block_prop");
 					_end = tKlass.getMethod("__restore_prop", boolean.class);
 					System.out.println("Using staccato");

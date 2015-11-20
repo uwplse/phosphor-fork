@@ -8,6 +8,8 @@ import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Label;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.MethodVisitor;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Type;
+import edu.columbia.cs.psl.phosphor.org.objectweb.asm.commons.AnalyzerAdapter;
+import edu.columbia.cs.psl.phosphor.runtime.TaintSentinel;
 
 public class ReturnPropagateMV extends MethodVisitor implements Opcodes {
 	
@@ -19,6 +21,8 @@ public class ReturnPropagateMV extends MethodVisitor implements Opcodes {
 	private Type ownerType;
 	private boolean isStatic;
 	private boolean isWrapper;
+	
+	protected AnalyzerAdapter aa;
 	
 	private static Class<?>[] wrapperClasses = new Class<?>[] {
 		Integer.class,
@@ -59,6 +63,22 @@ public class ReturnPropagateMV extends MethodVisitor implements Opcodes {
 			}
 			if(endLabel == null) {
 				endLabel = new Label();
+			}
+			if(aa.stack != null && aa.stack.size() > 1) {
+				int top = aa.stack.size() - 2;
+				while(top >= 0) {
+					if(aa.stack.get(top) == Opcodes.TOP) {
+						assert aa.stack.get(top - 1) == Opcodes.DOUBLE || aa.stack.get(top - 1) == Opcodes.LONG;
+						super.visitInsn(DUP_X2);
+						super.visitInsn(POP);
+						super.visitInsn(POP2);
+						top -= 2;
+					} else {
+						super.visitInsn(SWAP);
+						super.visitInsn(POP);
+						top -= 1;
+					}
+				}
 			}
 			super.visitJumpInsn(GOTO, endLabel);
 			return;
@@ -170,7 +190,7 @@ public class ReturnPropagateMV extends MethodVisitor implements Opcodes {
 	public void visitMaxs(int a, int b) {
 		if(foundOpcode == -1) {
 			assert endLabel == null;
-			super.visitEnd();
+			super.visitMaxs(a, b);
 			return;
 		}
 //		Object stackType = opcodeOfType(returnType);
@@ -180,6 +200,12 @@ public class ReturnPropagateMV extends MethodVisitor implements Opcodes {
 			if(!isStatic) {
 				nLocals++;
 			}
+			boolean skipSentinel = argumentTypes.length > 0 
+					&& argumentTypes[argumentTypes.length - 1].getSort() == Type.OBJECT &&
+				argumentTypes[argumentTypes.length - 1].getInternalName().equals(Type.getInternalName(TaintSentinel.class));
+			if(skipSentinel) {
+				nLocals--;
+			}
 			Object[] localTypes = new Object[nLocals];
 			int offs = 0;
 			if(!isStatic) {
@@ -187,6 +213,9 @@ public class ReturnPropagateMV extends MethodVisitor implements Opcodes {
 				offs = 1;
 			}
 			for(int i = 0; i < argumentTypes.length; i++) {
+				if(i == argumentTypes.length - 1 && skipSentinel) {
+					continue;
+				}
 				localTypes[i + offs] = opcodeOfType(argumentTypes[i]);
 			}
 			
@@ -208,16 +237,19 @@ public class ReturnPropagateMV extends MethodVisitor implements Opcodes {
 		if(shouldMultiPropagate()) {
 			super.visitVarInsn(ALOAD, 0);
 			loadTaintedArgArray(taintArgs);
-			super.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/TaintPropagation", "propagateMultiTaint", "(Ljava/lang/Object;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", false);
+			super.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/TaintPropagation",
+				"propagateMultiTaint", "(Ljava/lang/Object;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", false);
 			super.visitTypeInsn(CHECKCAST, returnType.getInternalName());
 		} else if(propagateReceiver()) {
 			super.visitVarInsn(ALOAD, 0);
 			loadTaintedArgArray(taintArgs);
-			super.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/TaintPropagation", "propagateTaint", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", false);
+			super.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/TaintPropagation",
+				"propagateTaint", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", false);
 			super.visitInsn(POP);
 		} else if(propagateType(returnType)) {
 			loadTaintedArgArray(taintArgs);
-			super.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/TaintPropagation", "propagateTaint", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", false);
+			super.visitMethodInsn(INVOKESTATIC, "edu/washington/cse/instrumentation/runtime/TaintPropagation",
+				"propagateTaint", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", false);
 			super.visitTypeInsn(CHECKCAST, returnType.getInternalName());
 		}
 		super.visitInsn(foundOpcode);

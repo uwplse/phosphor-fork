@@ -5,6 +5,7 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -20,6 +21,7 @@ import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Label;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.MethodVisitor;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Type;
+import edu.columbia.cs.psl.phosphor.org.objectweb.asm.commons.AnalyzerAdapter;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.commons.GeneratorAdapter;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.AnnotationNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.FieldNode;
@@ -84,6 +86,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 
 	private boolean fixLdcClass;
 	private boolean actuallyAddField;
+	private boolean addTaintCarry = false;
 	
 	@Override
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
@@ -128,10 +131,11 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 			|| name.equals("java/lang/String") || name.equals("java/lang/Float") || Configuration.AUTO_TAINT;
 
 		if (isNormalClass && !Instrumenter.isIgnoredClass(name) && !FIELDS_ONLY && actuallyAddField) {
-		String[] newIntfcs = new String[interfaces.length + (Configuration.AUTO_TAINT ? 2 : 1)];
+			this.addTaintCarry = Configuration.AUTO_TAINT && !Arrays.asList(interfaces).contains("edu/washington/cse/instrumentation/runtime/TaintCarry");
+			String[] newIntfcs = new String[interfaces.length + (addTaintCarry ? 2 : 1)];
 			System.arraycopy(interfaces, 0, newIntfcs, 0, interfaces.length);
 			newIntfcs[interfaces.length] = Type.getInternalName((Configuration.MULTI_TAINTING ? TaintedWithObjTag.class : TaintedWithIntTag.class));
-			if(Configuration.AUTO_TAINT) {
+			if(addTaintCarry) {
 				newIntfcs[interfaces.length + 1] = "edu/washington/cse/instrumentation/runtime/TaintCarry";
 			}
 			interfaces = newIntfcs;
@@ -275,7 +279,11 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 				!className.startsWith(Type.getInternalName(WeakReference.class)) &&
 				Configuration.AUTO_TAINT
 			) {
-				mv = new ReturnPropagateMV(mv, ignoreFrames, access, className, newDesc);
+				
+//				System.out.println(className + "." + name + ":" + newDesc);
+				ReturnPropagateMV rmv = new ReturnPropagateMV(mv, ignoreFrames, access, className, newDesc); 
+//				mv = new ReturnPropagateMV(mv, ignoreFrames, access, className, newDesc);
+				mv = rmv.aa = new AnalyzerAdapter(className, access, name, newDesc, rmv);
 			}
 			
 			mv = new TaintTagFieldCastMV(mv);
@@ -636,7 +644,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 				}
 			}
 			
-			if(Configuration.MULTI_TAINTING && Configuration.AUTO_TAINT) {
+			if(Configuration.MULTI_TAINTING && Configuration.AUTO_TAINT && !isInterface && this.addTaintCarry) {
 				MethodVisitor mv;
 				{
 					mv = super.visitMethod(Opcodes.ACC_PUBLIC, "_staccato_get_taint", "()Ljava/util/Map;", null, null);
