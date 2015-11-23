@@ -2,10 +2,13 @@ package edu.columbia.cs.psl.phosphor.instrumenter;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import edu.columbia.cs.psl.phosphor.Configuration;
 import edu.columbia.cs.psl.phosphor.Instrumenter;
 import edu.columbia.cs.psl.phosphor.TaintUtils;
+import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Handle;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Label;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.MethodVisitor;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
@@ -111,6 +114,7 @@ public class MethodArgReindexer extends InstructionAdapter {
 	int nLVTaintsCounted = 0;
 
 	boolean returnLVVisited = false;
+	private Map<Label, Label> labelMap = new HashMap<>();
 
 	@Override
 	public void visitLocalVariable(String name, String desc, String signature, Label start, Label end, int index) {
@@ -244,7 +248,11 @@ public class MethodArgReindexer extends InstructionAdapter {
 					nLocal++;
 				}
 //				System.out.println(remappedLocals[newIdx]);
-				remappedLocals[newIdx] = local[i];
+				if(local[i] instanceof Label && labelMap.containsKey(local[i])) {
+					remappedLocals[newIdx] = labelMap.containsKey(local[i]);
+				} else {
+					remappedLocals[newIdx] = local[i];
+				}
 				if (local[i] != Opcodes.TOP && local[i] instanceof String &&((String) local[i]).length() > 1 && ((String) local[i]).charAt(1) == '[' && Type.getObjectType((String) local[i]).getElementType().getSort() != Type.OBJECT) {
 					remappedLocals[newIdx] = MultiDTaintedArray.getTypeForType(Type.getObjectType((String) local[i])).getInternalName();
 				}
@@ -291,11 +299,14 @@ public class MethodArgReindexer extends InstructionAdapter {
 			}
 			if (stack[i] != Opcodes.TOP && stack[i] instanceof String && ((String) stack[i]).charAt(1) == '[' && Type.getObjectType((String) stack[i]).getElementType().getSort() != Type.OBJECT) {
 				newStack.add(MultiDTaintedArray.getTypeForType(Type.getObjectType((String) stack[i])).getInternalName());
-			} else
+			} else if(stack[i] instanceof Label && labelMap.containsKey(stack[i])) {
+				newStack.add(labelMap.get(stack[i]));
+			} else {
 				newStack.add(stack[i]);
+			}
 		}
 		Object[] stack2 = new Object[newStack.size()];
-		stack2 = newStack.toArray();
+		stack2 = newStack.toArray(stack2);
 		if (TaintUtils.DEBUG_FRAMES)
 			System.out.println("Post-adjust Frame: " + Arrays.toString(remappedLocals) + ";" + Arrays.toString(stack2));
 		super.visitFrame(type, nLocal, remappedLocals, nStack, stack2);
@@ -305,6 +316,7 @@ public class MethodArgReindexer extends InstructionAdapter {
 
 	@Override
 	public void visitIincInsn(int var, int increment) {
+		lastLabel = null;
 		int origVar = var;
 		if (!isStatic && var == 0)
 			var = 0;
@@ -324,12 +336,92 @@ public class MethodArgReindexer extends InstructionAdapter {
 	public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itfc) {
 		if (opcode == Opcodes.INVOKEINTERFACE)
 			Instrumenter.interfaces.add(owner);
+		lastLabel = null;
 		super.visitMethodInsn(opcode, owner, name, desc, itfc);
 	}
-
+	
+	@Override
+	public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+		lastLabel = null;
+		super.visitFieldInsn(opcode, owner, name, desc);
+	}
+	
+	@Override
+	public void visitIntInsn(int opcode, int operand) {
+		lastLabel = null;
+		super.visitIntInsn(opcode, operand);
+	}
+	
+	@Override
+	public void visitInsn(int opcode) {
+		lastLabel = null;
+		super.visitInsn(opcode);
+	}
+	
+	@Override
+	public void visitInvokeDynamicInsn(String name, String desc, Handle bsm,
+			Object... bsmArgs) {
+		lastLabel = null;
+		super.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
+	}
+	
+	@Override
+	public void visitJumpInsn(int opcode, Label label) {
+		lastLabel = null;
+		super.visitJumpInsn(opcode, label);
+	}
+	
+	@Override
+	public void visitLdcInsn(Object cst) {
+		lastLabel = null;
+		super.visitLdcInsn(cst);
+	}
+	
+	@Override
+	public void visitMultiANewArrayInsn(String desc, int dims) {
+		lastLabel = null;
+		super.visitMultiANewArrayInsn(desc, dims);
+	}
+	
+	@Override
+	public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+		lastLabel = null;
+		super.visitLookupSwitchInsn(dflt, keys, labels);
+	}
+	
+	@Override
+	public void visitTableSwitchInsn(int min, int max, Label dflt,
+			Label... labels) {
+		lastLabel = null;
+		super.visitTableSwitchInsn(min, max, dflt, labels);
+	}
+	
+	@Override
+	public void visitTypeInsn(int opcode, String type) {
+		if(opcode == Opcodes.NEW && lastLabel != null && seenBranch) {
+			Label replacement = new Label();
+			super.visitLabel(replacement);
+			labelMap.put(lastLabel, replacement);
+		}
+		super.visitTypeInsn(opcode, type);
+	}
+	
+	@Override
+	public void visitLabel(Label label) {
+		lastLabel = label;
+		seenBranch = false;
+		super.visitLabel(label);
+	}
+	
+	private Label lastLabel = null;
+	private boolean seenBranch;
+	
 	public void visitVarInsn(int opcode, int var) {
 		if(opcode == TaintUtils.BRANCH_END || opcode == TaintUtils.BRANCH_START)
 		{
+			if(lastLabel != null) {
+				seenBranch = true;
+			}
 			super.visitVarInsn(opcode, var);
 			return;
 		}

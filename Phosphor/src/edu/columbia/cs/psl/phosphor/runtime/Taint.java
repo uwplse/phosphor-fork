@@ -170,6 +170,10 @@ public final class Taint implements Cloneable{
 	{
 		if(tags.isEmpty() || IGNORE_TAINTING)
 			return;
+		if(Configuration.taintCombiner != null) {
+			Configuration.taintCombiner.combineTagsOnObject(o, tags);
+			return;
+		}
 		if(o instanceof TaintedWithObjTag)
 		{
 			if(o instanceof String)

@@ -42,8 +42,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 
-import com.rits.cloning.Cloner;
-
 import edu.columbia.cs.psl.phosphor.instrumenter.TaintTrackingClassVisitor;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.ClassReader;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.ClassVisitor;
@@ -410,7 +408,6 @@ public class Instrumenter {
 				|| owner.startsWith("org/apache/jasper/runtime/JspSourceDependent")
 				|| owner.startsWith("sun/reflect/ConstructorAccessor") //was on last
 				|| owner.startsWith("sun/reflect/SerializationConstructorAccessor")
-
 				|| owner.startsWith("sun/reflect/GeneratedMethodAccessor") || owner.startsWith("sun/reflect/GeneratedConstructorAccessor")
 				|| owner.startsWith("sun/reflect/GeneratedSerializationConstructor") || owner.startsWith("sun/awt/image/codec/")
 				|| owner.startsWith("java/lang/invoke/LambdaForm")
