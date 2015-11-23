@@ -87,11 +87,13 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 	private boolean fixLdcClass;
 	private boolean actuallyAddField;
 	private boolean addTaintCarry = false;
+	private boolean isUnwrapClass;
 	
 	@Override
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		addTaintField = true;
 		addTaintMethod = true;
+		isUnwrapClass = name.startsWith("sun/security/pkcs11");
 		this.fixLdcClass = (version & 0xFFFF) < Opcodes.V1_5;
 		if(Instrumenter.IS_KAFFE_INST && name.endsWith("java/lang/VMSystem"))
 			access = access | Opcodes.ACC_PUBLIC;
@@ -265,7 +267,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 
 		String newDesc = Type.getMethodDescriptor(newReturnType, newArgs);
 		//		System.out.println("olddesc " + desc + " newdesc " + newDesc);
-		if ((access & Opcodes.ACC_NATIVE) == 0 && !methodIsTooBigAlready(name, desc)) {
+		if ((access & Opcodes.ACC_NATIVE) == 0 && !methodIsTooBigAlready(name, desc) && (!isUnwrapClass || (access & Opcodes.ACC_ABSTRACT) != 0)) {
 			//not a native method
 			if (!name.contains("<") && !requiresNoChange)
 				name = name + TaintUtils.METHOD_SUFFIX;
@@ -702,7 +704,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 			generateStrLdcWrapper();
 		if (!goLightOnGeneratedStuff)
 			for (MethodNode m : methodsToAddWrappersFor) {
-				if ((m.access & Opcodes.ACC_NATIVE) == 0) {
+				if ((m.access & Opcodes.ACC_NATIVE) == 0 && (!isUnwrapClass || (m.access & Opcodes.ACC_ABSTRACT) != 0)) {
 					if ((m.access & Opcodes.ACC_ABSTRACT) == 0) {
 						//not native
 						MethodNode fullMethod = forMore.get(m);
@@ -1062,11 +1064,14 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 		if(Configuration.IMPLICIT_TRACKING)
 			newDesc += Type.getDescriptor(ControlTaintTagStack.class);
 		
-		if(isPreAllocReturnType)
+		if(isPreAllocReturnType) {
 			newDesc += newReturn.getDescriptor();
+		} else if(m.name.equals("<init>")) {
+			newDesc += Type.getDescriptor(TaintSentinel.class);
+		}
 		newDesc += ")" + newReturn.getDescriptor();
-
-		MethodVisitor mv = super.visitMethod(m.access, m.name + TaintUtils.METHOD_SUFFIX, newDesc, m.signature, exceptions);
+		String newName = m.name.equals("<init>") ? m.name : m.name + TaintUtils.METHOD_SUFFIX;
+		MethodVisitor mv = super.visitMethod(m.access, newName, newDesc, m.signature, exceptions);
 		NeverNullArgAnalyzerAdapter an = new NeverNullArgAnalyzerAdapter(className, m.access, m.name, newDesc, mv);
 		MethodVisitor soc = new SpecialOpcodeRemovingMV(an, false, className, false);
 		LocalVariableManager lvs = new LocalVariableManager(m.access,newDesc, soc, an, mv);
