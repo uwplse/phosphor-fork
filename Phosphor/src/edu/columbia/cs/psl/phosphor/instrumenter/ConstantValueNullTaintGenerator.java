@@ -1,21 +1,22 @@
 package edu.columbia.cs.psl.phosphor.instrumenter;
 
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AnalyzerAdapter;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.IntInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.MultiANewArrayInsnNode;
+import org.objectweb.asm.tree.TypeInsnNode;
+
 import edu.columbia.cs.psl.phosphor.Configuration;
 import edu.columbia.cs.psl.phosphor.Instrumenter;
 import edu.columbia.cs.psl.phosphor.TaintUtils;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.MethodVisitor;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Type;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.commons.AnalyzerAdapter;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.AbstractInsnNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.FieldInsnNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.InsnList;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.InsnNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.IntInsnNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.MethodInsnNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.MethodNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.MultiANewArrayInsnNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.TypeInsnNode;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArray;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithObjTag;
@@ -26,7 +27,7 @@ public class ConstantValueNullTaintGenerator extends MethodVisitor implements Op
 
 			@Override
 			public void visitEnd() {
-				final MethodNode uninstrumented = new MethodNode(api, access, name, desc, signature, exceptions.toArray(new String[4]));
+				final MethodNode uninstrumented = new MethodNode(api, access, name, desc, signature, (String[]) exceptions.toArray(new String[4]));
 				uninstrumented.instructions = new InsnList();
 				AbstractInsnNode i = instructions.getFirst();
 				if (i != null) {
@@ -36,7 +37,7 @@ public class ConstantValueNullTaintGenerator extends MethodVisitor implements Op
 					}
 					uninstrumented.instructions.add(i);
 				}
-				this.accept(new MethodNode(api, access, name, desc, signature, exceptions.toArray(new String[4])) {
+				this.accept(new MethodNode(api, access, name, desc, signature, (String[]) exceptions.toArray(new String[4])) {
 
 					boolean hasNonConstantOps = false;
 

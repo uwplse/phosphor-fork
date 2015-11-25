@@ -1,15 +1,13 @@
 package edu.columbia.cs.psl.phosphor;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Method;
 
-import com.rits.cloning.Cloner;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 import sun.misc.VM;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Type;
 import edu.columbia.cs.psl.phosphor.runtime.ArrayHelper;
-import edu.columbia.cs.psl.phosphor.runtime.BoxedPrimitiveStoreWithIntTags;
-import edu.columbia.cs.psl.phosphor.runtime.BoxedPrimitiveStoreWithObjTags;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
 import edu.columbia.cs.psl.phosphor.runtime.TaintSentinel;
 import edu.columbia.cs.psl.phosphor.runtime.UninstrumentedTaintSentinel;
@@ -632,29 +630,49 @@ public class TaintUtils {
 	{
 		return (Object[]) Array.newInstance(Configuration.TAINT_TAG_OBJ_CLASS, len);
 	}
-	static volatile Cloner cloner = null;
+
+	private static <T> T shallowClone(T obj)
+	{
+		try{
+			Method m =  obj.getClass().getDeclaredMethod("clone");
+			m.setAccessible(true);
+			return (T) m.invoke(obj);
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+			return null;
+		}
+	}
 
 	public static <T extends Enum<T>> T enumValueOf(Class<T> enumType, String name) {
 		T ret = Enum.valueOf(enumType, name);
-		if (name instanceof TaintedWithIntTag) {
-			int tag = ((TaintedWithIntTag) name).getPHOSPHOR_TAG();
+		if (((Object)name) instanceof TaintedWithIntTag) {
+			int tag = ((TaintedWithIntTag) ((Object)name)).getPHOSPHOR_TAG();
 			if (tag != 0) {
-				if (cloner == null)
-					cloner = new Cloner();
-				ret = cloner.deepClone(ret);
+				ret = shallowClone(ret);
 				((TaintedWithIntTag) ret).setPHOSPHOR_TAG(tag);
 			}
-		} else if (name instanceof TaintedWithObjTag) {
-			Object tag = ((TaintedWithObjTag) name).getPHOSPHOR_TAG();
+		} else if (((Object)name) instanceof TaintedWithObjTag) {
+			Object tag = ((TaintedWithObjTag) ((Object)name)).getPHOSPHOR_TAG();
 			if (tag != null) {
-				if (cloner == null)
-					cloner = new Cloner();
-				ret = cloner.deepClone(ret);
+				ret = shallowClone(ret);
 				((TaintedWithObjTag) ret).setPHOSPHOR_TAG(tag);
 			}
 		}
 		return ret;
 	}
+	public static <T extends Enum<T>> T enumValueOf(Class<T> enumType, String name, ControlTaintTagStack ctrl) {
+		T ret = Enum.valueOf(enumType, name);
+		Taint tag = (Taint) ((TaintedWithObjTag) ((Object)name)).getPHOSPHOR_TAG();
+		tag = Taint.combineTags(tag, ctrl);
+		if (tag != null && !(tag.getLabel() == null && tag.hasNoDependencies())) {
+			ret = shallowClone(ret);
+			((TaintedWithObjTag) ret).setPHOSPHOR_TAG(tag);
+		}
+		return ret;
+	}
+
 	public static Object ensureUnboxed(Object o)
 	{
 		if(o instanceof MultiDTaintedArrayWithIntTag)

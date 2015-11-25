@@ -1,9 +1,10 @@
 package edu.columbia.cs.psl.phosphor.instrumenter;
 
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+
 import edu.columbia.cs.psl.phosphor.Configuration;
 import edu.columbia.cs.psl.phosphor.Instrumenter;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.MethodVisitor;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
 
 public class CallRewritingMethodVisitor extends MethodVisitor {
 	public CallRewritingMethodVisitor(String className, int access, String name,

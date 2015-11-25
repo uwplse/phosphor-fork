@@ -1,10 +1,10 @@
 package edu.columbia.cs.psl.phosphor.instrumenter;
 
 import edu.columbia.cs.psl.phosphor.TaintUtils;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Label;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.MethodVisitor;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Type;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArray;
 
 public class SpecialOpcodeRemovingMV extends MethodVisitor {
@@ -77,6 +77,7 @@ public class SpecialOpcodeRemovingMV extends MethodVisitor {
 		case TaintUtils.CUSTOM_SIGNAL_1:
 		case TaintUtils.CUSTOM_SIGNAL_2:
 		case TaintUtils.CUSTOM_SIGNAL_3:
+		case TaintUtils.FORCE_CTRL_STORE:
 			break;
 		default:
 			super.visitInsn(opcode);

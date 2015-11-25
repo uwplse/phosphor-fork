@@ -1,6 +1,7 @@
 package edu.columbia.cs.psl.phosphor;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -11,24 +12,27 @@ import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.List;
 
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.JSRInlinerAdapter;
+import org.objectweb.asm.commons.SerialVersionUIDAdder;
+import org.objectweb.asm.tree.AnnotationNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.util.CheckClassAdapter;
+import org.objectweb.asm.util.TraceClassVisitor;
+
 import edu.columbia.cs.psl.phosphor.instrumenter.TaintTrackingClassVisitor;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.ClassReader;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.ClassVisitor;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.ClassWriter;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.MethodVisitor;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Type;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.commons.JSRInlinerAdapter;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.commons.SerialVersionUIDAdder;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.AnnotationNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.ClassNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.FieldNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.MethodNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.util.CheckClassAdapter;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.util.TraceClassVisitor;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
 import edu.columbia.cs.psl.phosphor.runtime.TaintInstrumented;
 import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
@@ -191,6 +195,8 @@ public class PreMain {
 			static StaccatoAccess sa = new StaccatoAccess();
 		}
 		
+		MessageDigest md5inst;
+
 		public byte[] transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
 			int flag = StaccatoIntegration.sa.start();
 			try {
@@ -211,6 +217,7 @@ public class PreMain {
 				System.out.println("Premain.java ignore: " + className);
 				return classfileBuffer;
 			}
+			
 //			if(className.equals("java/lang/Integer"))
 //				System.out.println(className);
 			ClassNode cn = new ClassNode();
@@ -220,25 +227,61 @@ public class PreMain {
 					|| className.endsWith("$Access4JacksonDeSerializer"))
 				skipFrames = true;
 			if (cn.visibleAnnotations != null)
-				for (AnnotationNode an : cn.visibleAnnotations) {
+				for (Object o : cn.visibleAnnotations) {
+					AnnotationNode an = (AnnotationNode) o;
 					if (an.desc.equals(Type.getDescriptor(TaintInstrumented.class))) {
 //						System.out.println("Found annotation for: "  + className2);
 						return classfileBuffer;
 					}
 				}
 			if(cn.interfaces != null)
-				for(String s : cn.interfaces)
+				for(Object s : cn.interfaces)
 				{
 					if(s.equals(Type.getInternalName(TaintedWithObjTag.class)) || s.equals(Type.getInternalName(TaintedWithIntTag.class))) {
 						System.out.println("Skipping instrumentation because we found interface for: "  + className2);
 						return classfileBuffer;
 					}
 				}
-			for(MethodNode mn : cn.methods)
-				if(mn.name.equals("getPHOSPHOR_TAG")) {
-					System.out.println("Skipping instrumentation because we found get* method for: " + className2);
+			for(Object mn : cn.methods)
+				if(((MethodNode)mn).name.equals("getPHOSPHOR_TAG"))
 					return classfileBuffer;
+			
+			if(Configuration.CACHE_DIR != null)
+			{
+				String cacheKey = className.replace("/", ".");
+				File f = new File(Configuration.CACHE_DIR + File.separator + cacheKey + ".md5sum");
+				if (f.exists()) {
+					try {
+						FileInputStream fis = new FileInputStream(f);
+						byte[] cachedDigest = new byte[1024];
+						fis.read(cachedDigest);
+						fis.close();
+						if(md5inst == null)
+							md5inst = MessageDigest.getInstance("MD5");
+						byte[] checksum = md5inst.digest(classfileBuffer);
+						boolean matches = true;
+						if(checksum.length > cachedDigest.length)
+							matches = false;
+						if(matches)
+							for(int i = 0; i < checksum.length; i++)
+							{
+								if(checksum[i] != cachedDigest[i])
+								{
+									matches = false;
+									break;
+								}
+							}
+						if(matches)
+						{
+							byte[] ret = Files.readAllBytes(new File(Configuration.CACHE_DIR + File.separator + cacheKey + ".class").toPath());
+							return ret;
+						}
+					} catch (Throwable t) {
+						t.printStackTrace();
+					}
 				}
+			}
+
 			List<FieldNode> fields = cn.fields;
 			if (skipFrames)
 			{
@@ -269,9 +312,9 @@ public class PreMain {
 				{
 //					if(TaintUtils.DEBUG_FRAMES)
 //						System.out.println("NOW IN CHECKCLASSADAPTOR");
-					if (TaintUtils.VERIFY_CLASS_GENERATION && !className.startsWith("org/codehaus/janino/UnitCompiler") &&
+					if (DEBUG || (TaintUtils.VERIFY_CLASS_GENERATION && !className.startsWith("org/codehaus/janino/UnitCompiler") &&
 							!className.startsWith("jersey/repackaged/com/google/common/cache/LocalCache") && !className.startsWith("jersey/repackaged/com/google/common/collect/AbstractMapBasedMultimap")
-							&& !className.startsWith("jersey/repackaged/com/google/common/collect/")) {
+							&& !className.startsWith("jersey/repackaged/com/google/common/collect/"))) {
 						cr = new ClassReader(cw.toByteArray());
 						cr.accept(new CheckClassAdapter(new ClassWriter(0)), 0);
 					}
@@ -300,8 +343,25 @@ public class PreMain {
 //					t.printStackTrace();
 //				}
 //				System.out.println("Succeeded w " + className);
-				byte[] toRet = cw.toByteArray();
-				return toRet;
+				if(Configuration.CACHE_DIR != null)
+				{
+					String cacheKey = className.replace("/", ".");
+					File f = new File(Configuration.CACHE_DIR + File.separator + cacheKey+".class");
+					FileOutputStream fos = new FileOutputStream(f);
+					byte[] ret = cw.toByteArray();
+					fos.write(ret);
+					fos.close();
+					if(md5inst == null)
+						md5inst = MessageDigest.getInstance("MD5");
+					byte[] checksum = md5inst.digest(classfileBuffer);
+					f = new File(Configuration.CACHE_DIR + File.separator + cacheKey+".md5sum");
+					fos = new FileOutputStream(f);
+					
+					fos.write(checksum);
+					fos.close();
+					return ret;
+				}
+				return cw.toByteArray();
 			} catch (Throwable ex) {
 				ex.printStackTrace();
 				TraceClassVisitor tcv;
@@ -395,6 +455,24 @@ public class PreMain {
 	}
 	public static void premain(String args, Instrumentation inst) {
         instrumentation = inst;
+        if(args != null)
+        {
+        	String[] aaa = args.split(",");
+        	for(String s : aaa)
+        	{
+        		if(s.equals("acmpeq"))
+                	Configuration.WITH_UNBOX_ACMPEQ = true;
+        		else if(s.equals("enum"))
+                	Configuration.WITH_ENUM_BY_VAL= true;
+        		else if(s.startsWith("cacheDir="))
+        		{
+        			Configuration.CACHE_DIR = s.substring(9);
+        			File f = new File(Configuration.CACHE_DIR);
+        			if(!f.exists())
+        				f.mkdir();
+        		}
+        	}
+        }
         if(Instrumenter.loader == null)
         	Instrumenter.loader = bigLoader;
 		ClassFileTransformer transformer = new PCLoggingTransformer();

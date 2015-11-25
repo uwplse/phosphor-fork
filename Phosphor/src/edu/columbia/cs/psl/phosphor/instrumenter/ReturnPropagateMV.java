@@ -3,12 +3,13 @@ package edu.columbia.cs.psl.phosphor.instrumenter;
 
 import java.util.Arrays;
 
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AnalyzerAdapter;
+
 import edu.columbia.cs.psl.phosphor.Instrumenter;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Label;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.MethodVisitor;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Opcodes;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Type;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.commons.AnalyzerAdapter;
 import edu.columbia.cs.psl.phosphor.runtime.TaintSentinel;
 
 public class ReturnPropagateMV extends MethodVisitor implements Opcodes {
