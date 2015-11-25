@@ -441,13 +441,21 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 			//				return mvNext;
 			//			}
 			final MethodVisitor prev = mvNext;
+			final String origName = originalName;
+			
+			final MethodVisitor untaggedMV = className.equals("java/lang/String") && origName.equals("hashCode") ? super.visitMethod(access, "hashCode$$PHOSPHORUNTAGGED", "()I", "()I", null) : null;
+			
 			MethodNode rawMethod = new MethodNode(Opcodes.ASM5, access, name, desc, signature, exceptions) {
 				@Override
 				public void visitEnd() {
 					super.visitEnd();
+					if(untaggedMV != null) {
+						this.accept(untaggedMV);
+					}
 					this.accept(prev);
 				}
 			};
+			
 			if (!isInterface && !originalName.contains("$$INVIVO"))
 				this.myMethods.add(rawMethod);
 			forMore.put(wrapper,rawMethod);
