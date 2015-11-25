@@ -12,7 +12,6 @@ import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.FieldInsnNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.InsnList;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.InsnNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.IntInsnNode;
-import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.LdcInsnNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.MethodInsnNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.MethodNode;
 import edu.columbia.cs.psl.phosphor.org.objectweb.asm.tree.MultiANewArrayInsnNode;
@@ -207,9 +206,17 @@ public class ConstantValueNullTaintGenerator extends MethodVisitor implements Op
 //								HashMap<String, Type> accessedMultiDArrays = new HashMap<String, Type>();
 								boolean isRaw = false;
 								AnalyzerAdapter an = new AnalyzerAdapter(className, access, name, desc, null);
-
 								while (insn != null) {
 									switch (insn.getOpcode()) {
+									case TaintUtils.IGNORE_EVERYTHING:
+										if(insn.getPrevious() == null || insn.getNext() == null) {
+											break;
+										} else {
+											AbstractInsnNode next = insn.getNext();
+											uninstrumented.instructions.remove(insn);
+											insn = next;
+											continue;
+										}
 									case TaintUtils.RAW_INSN:
 										isRaw = !isRaw;
 										break;

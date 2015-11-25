@@ -1,6 +1,7 @@
 package edu.columbia.cs.psl.phosphor;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -303,7 +304,8 @@ public class PreMain {
 				return toRet;
 			} catch (Throwable ex) {
 				ex.printStackTrace();
-				cv= new TraceClassVisitor(null,null);
+				TraceClassVisitor tcv;
+				cv= tcv = new TraceClassVisitor(null,null);
 				try{
 					cr.accept(
 //							new CheckClassAdapter(
@@ -312,7 +314,17 @@ public class PreMain {
 							, ClassReader.EXPAND_FRAMES);
 				}
 				catch(Throwable ex2)
-				{				}
+				{		FileOutputStream fos = null;
+						try {
+							fos = new FileOutputStream(new File("/tmp/fuckme"));
+						} catch (FileNotFoundException e) { }
+						tcv.p.print(new PrintWriter(fos));
+//						System.out.println(tcv.p.text.get(tcv.p.text.size() - 1));
+						try {
+							fos.flush();
+						} catch (IOException e) { }
+						
+				}
 				ex.printStackTrace();
 				System.err.println("method so far:");
 				if (!innerException) {

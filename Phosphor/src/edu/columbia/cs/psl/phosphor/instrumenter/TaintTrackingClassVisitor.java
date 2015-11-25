@@ -93,7 +93,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		addTaintField = true;
 		addTaintMethod = true;
-		isUnwrapClass = name.startsWith("sun/security/pkcs11");
+		isUnwrapClass = name.startsWith("sun/security/pkcs11") || name.equals("freemarker/core/FMParserTokenManager") || name.startsWith("java/lang/ThreadLocal");
 		this.fixLdcClass = (version & 0xFFFF) < Opcodes.V1_5;
 		if(Instrumenter.IS_KAFFE_INST && name.endsWith("java/lang/VMSystem"))
 			access = access | Opcodes.ACC_PUBLIC;
@@ -278,7 +278,9 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 			if(
 				(!className.equals("sun/misc/VM") || !name.startsWith("isBooted")) &&
 				!className.startsWith(Type.getInternalName(ThreadLocal.class)) &&
-				!className.startsWith(Type.getInternalName(WeakReference.class)) &&
+				!className.startsWith(Type.getInternalName(WeakReference.class)) && 
+				!className.startsWith("java/util/concurrent/locks") &&
+				!className.startsWith("edu/columbia/cs/psl/phosphor/") &&
 				Configuration.AUTO_TAINT
 			) {
 				
@@ -662,7 +664,9 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 					mv.visitInsn(Opcodes.ACONST_NULL);
 					mv.visitInsn(Opcodes.ARETURN);
 					mv.visitLabel(l0);
-					mv.visitFrame(Opcodes.F_APPEND,1, new Object[] {"edu/columbia/cs/psl/phosphor/runtime/Taint"}, 0, null);
+					if(!ignoreFrames) {
+						mv.visitFrame(Opcodes.F_APPEND,1, new Object[] {"edu/columbia/cs/psl/phosphor/runtime/Taint"}, 0, null);
+					}
 					mv.visitVarInsn(Opcodes.ALOAD, 1);
 					mv.visitFieldInsn(Opcodes.GETFIELD, "edu/columbia/cs/psl/phosphor/runtime/Taint", "lbl", "Ljava/lang/Object;");
 					mv.visitTypeInsn(Opcodes.CHECKCAST, "java/util/Map");
@@ -683,7 +687,9 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 					Label l1 = new Label();
 					mv.visitJumpInsn(Opcodes.GOTO, l1);
 					mv.visitLabel(l0);
-					mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+					if(!ignoreFrames) {
+						mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+					}
 					mv.visitVarInsn(Opcodes.ALOAD, 0);
 					mv.visitTypeInsn(Opcodes.NEW, "edu/columbia/cs/psl/phosphor/runtime/Taint");
 					mv.visitInsn(Opcodes.DUP);
@@ -691,7 +697,9 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 					mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "edu/columbia/cs/psl/phosphor/runtime/Taint", "<init>", "(Ljava/lang/Object;)V", false);
 					mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, className, "setPHOSPHOR_TAG", "(Ljava/lang/Object;)V", false);
 					mv.visitLabel(l1);
-					mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+					if(!ignoreFrames) {
+						mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+					}
 					mv.visitInsn(Opcodes.RETURN);
 					mv.visitMaxs(4, 2);
 					mv.visitEnd();

@@ -146,6 +146,9 @@ public final class Taint implements Cloneable{
 		return r;
 	}
 	public static Taint combineTags(Taint t1, ControlTaintTagStack tags){
+		if(Configuration.taintCombiner != null) {
+			return Configuration.taintCombiner.combineTags(t1, tags);
+		}
 		if(t1 == null && tags.isEmpty())
 			return null;
 		else if(t1 == null)

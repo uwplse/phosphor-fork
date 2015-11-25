@@ -1600,7 +1600,6 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 			return;
 		}
 		if (opcode == TaintUtils.IGNORE_EVERYTHING) {
-//			System.err.println("VisitInsn is ignoreverything! in  " + name);
 //			new Exception().printStackTrace();
 			isIgnoreAllInstrumenting = !isIgnoreAllInstrumenting;
 			isIgnoreEverything = !isIgnoreEverything;

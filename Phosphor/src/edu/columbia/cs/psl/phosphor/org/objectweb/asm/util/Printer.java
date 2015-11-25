@@ -613,6 +613,7 @@ public abstract class Printer {
                 printList(pw, (List<?>) o);
             } else {
                 pw.print(o.toString());
+                pw.flush();
             }
         }
     }
