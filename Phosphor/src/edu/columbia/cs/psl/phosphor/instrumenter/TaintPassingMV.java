@@ -27,13 +27,14 @@ import edu.columbia.cs.psl.phosphor.runtime.Taint;
 import edu.columbia.cs.psl.phosphor.runtime.TaintSentinel;
 import edu.columbia.cs.psl.phosphor.runtime.Tainter;
 import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
-import edu.columbia.cs.psl.phosphor.struct.EnqueuedTaint;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArray;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithObjTag;
 
 public class TaintPassingMV extends TaintAdapter implements Opcodes {
 
+	private static final boolean TAINT_COPY_SEMANTICS = false;
+	
 	public int lastArg;
 	Type originalMethodReturnType;
 	Type newReturnType;
@@ -477,7 +478,7 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 			case Opcodes.FSTORE:
 			case Opcodes.DSTORE:
 				super.visitVarInsn(opcode, var);
-				if(Configuration.MULTI_TAINTING)
+				if(Configuration.MULTI_TAINTING && TAINT_COPY_SEMANTICS)
 				{
 					super.visitMethodInsn(Opcodes.INVOKESTATIC, Configuration.TAINT_TAG_INTERNAL_NAME, "copyTaint", "("+Configuration.TAINT_TAG_DESC+")"+Configuration.TAINT_TAG_DESC, false);
 				}
@@ -710,7 +711,7 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 					{
 						if(shadowType.length() == 1)
 						{
-							if(Configuration.MULTI_TAINTING)
+							if(Configuration.MULTI_TAINTING && TAINT_COPY_SEMANTICS)
 							{
 								super.visitMethodInsn(Opcodes.INVOKESTATIC, Configuration.TAINT_TAG_INTERNAL_NAME, "copyTaint", "("+Configuration.TAINT_TAG_DESC+")"+Configuration.TAINT_TAG_DESC, false);
 							}
