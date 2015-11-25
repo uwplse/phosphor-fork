@@ -180,7 +180,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 		}
 		super.visit(version, access, name, signature, superName, interfaces);
 
-		this.visitAnnotation(Type.getDescriptor(TaintInstrumented.class), false);		
+		this.visitAnnotation(Type.getDescriptor(TaintInstrumented.class), true);		
 		if(Instrumenter.isIgnoredClass(superName) && !isInterface)
 		{
 			//Might need to override stuff.
