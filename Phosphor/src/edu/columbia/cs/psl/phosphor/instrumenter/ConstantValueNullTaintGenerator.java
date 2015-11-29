@@ -13,10 +13,13 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.VarInsnNode;
 
 import edu.columbia.cs.psl.phosphor.Configuration;
 import edu.columbia.cs.psl.phosphor.Instrumenter;
 import edu.columbia.cs.psl.phosphor.TaintUtils;
+import edu.columbia.cs.psl.phosphor.runtime.Taint;
+import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArray;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithObjTag;
@@ -533,6 +536,213 @@ public class ConstantValueNullTaintGenerator extends MethodVisitor implements Op
 						}
 
 						this.accept(cmv);
+					}
+					
+					private InsnList generateNullTaint(Type t, int tagOffset) {
+//						MethodNode mn = new MethodNode();
+						return null;
+					}
+					
+					@SuppressWarnings("unused")
+					private void rewriteConstantWithJumps(MethodNode uninstrumented) {
+						uninstrumented.instructions.insertBefore(uninstrumented.instructions.getFirst(), new InsnNode(TaintUtils.IGNORE_EVERYTHING));
+						uninstrumented.instructions.add(new InsnNode(TaintUtils.IGNORE_EVERYTHING));
+						int tagOffset = -1;
+						{
+							int argOffset = 0;
+							InsnList built = new InsnList();
+							built.add(new InsnNode(Opcodes.ACONST_NULL));
+							built.add(new TypeInsnNode(Opcodes.CHECKCAST, Type.getInternalName(Taint.class)));
+							String taintDesc = Type.getDescriptor(Taint.class);
+							if((access & ACC_STATIC) != 0) {
+								built.add(new VarInsnNode(Opcodes.ALOAD, 0));
+								built.add(new MethodInsnNode(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintObj", "()L/java/lang/Object;", false));
+								built.add(new TypeInsnNode(Opcodes.CHECKCAST, Type.getInternalName(Taint.class)));
+								built.add(new MethodInsnNode(Opcodes.INVOKESTATIC, Type.getInternalName(Taint.class), "combineTags", "(" + taintDesc + taintDesc +")" + taintDesc, false));
+								argOffset++;
+							}
+							for(Type t : Type.getArgumentTypes(desc)) {
+								if(t.getInternalName().equals(Type.getReturnType(desc).getInternalName())) {
+									// do nothing
+								} else if(t.getSort() == Type.OBJECT && t.getInternalName().equals(Type.getInternalName(ControlTaintTagStack.class))) {
+									tagOffset = argOffset;
+									built.add(new VarInsnNode(Opcodes.ALOAD, argOffset));
+									built.add(new FieldInsnNode(Opcodes.GETFIELD, Type.getInternalName(ControlTaintTagStack.class), "taint", taintDesc));
+									built.add(new MethodInsnNode(Opcodes.INVOKESTATIC, Type.getInternalName(Taint.class), "combineTags", "(" + taintDesc + taintDesc +")" + taintDesc, false));
+								} else if(t.getDescriptor().equals(taintDesc)) {
+									built.add(new VarInsnNode(Opcodes.ALOAD, argOffset));
+									built.add(new MethodInsnNode(Opcodes.INVOKESTATIC, Type.getInternalName(Taint.class), "combineTags", "(" + taintDesc + taintDesc +")" + taintDesc, false));
+								} else if(t.getSort() == Type.OBJECT || (t.getSort() == Type.ARRAY && t.getElementType().getSort() == Type.OBJECT)) {
+									built.add(new VarInsnNode(Opcodes.ALOAD, argOffset));
+									built.add(new MethodInsnNode(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintObj", "()L/java/lang/Object;", false));
+									built.add(new TypeInsnNode(Opcodes.CHECKCAST, Type.getInternalName(Taint.class)));
+									built.add(new MethodInsnNode(Opcodes.INVOKESTATIC, Type.getInternalName(Taint.class), "combineTags", "(" + taintDesc + taintDesc +")" + taintDesc, false));
+								}
+								argOffset += t.getSize();
+							}
+							if(tagOffset == -1) {
+								throw new RuntimeException("Shit");
+							}
+							built.add(new TypeInsnNode(Opcodes.NEW, Type.getInternalName(ControlTaintTagStack.class)));
+							built.add(new InsnNode(Opcodes.DUP));
+							built.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, Type.getInternalName(ControlTaintTagStack.class), "<init>", "()V", false));
+							built.add(new InsnNode(Opcodes.SWAP));
+							built.add(new FieldInsnNode(Opcodes.PUTFIELD, Type.getInternalName(ControlTaintTagStack.class), "taint", taintDesc));
+							built.add(new VarInsnNode(Opcodes.ASTORE, tagOffset));
+							uninstrumented.instructions.insert(uninstrumented.instructions.getFirst(), built);
+							built = null;
+						}
+						FieldInsnNode fin;
+						AbstractInsnNode insn = uninstrumented.instructions.getFirst();
+//						HashMap<String, Type> accessedMultiDArrays = new HashMap<String, Type>();
+						boolean isRaw = false;
+						AnalyzerAdapter an = new AnalyzerAdapter(className, access, name, desc, null);
+						while (insn != null) {
+							switch (insn.getOpcode()) {
+							case TaintUtils.IGNORE_EVERYTHING:
+								if(insn.getPrevious() == null || insn.getNext() == null) {
+									break;
+								} else {
+									AbstractInsnNode next = insn.getNext();
+									uninstrumented.instructions.remove(insn);
+									insn = next;
+									continue;
+								}
+							case TaintUtils.BRANCH_END:
+							case TaintUtils.BRANCH_START:
+							case TaintUtils.FORCE_CTRL_STORE:
+							{
+								AbstractInsnNode next = insn.getNext();
+								uninstrumented.instructions.remove(insn);
+								insn = next;
+								continue;
+							}
+							case TaintUtils.RAW_INSN:
+								isRaw = !isRaw;
+								break;
+							case Opcodes.MULTIANEWARRAY:
+								MultiANewArrayInsnNode main = (MultiANewArrayInsnNode) insn;
+
+								Type arrayType = Type.getType(main.desc);
+								Type origType = Type.getType(main.desc);
+								boolean needToHackDims = false;
+								if (arrayType.getElementType().getSort() != Type.OBJECT) {
+									if (main.dims == arrayType.getDimensions()) {
+										needToHackDims = true;
+									}
+									arrayType = MultiDTaintedArray.getTypeForType(arrayType);
+									//Type.getType(MultiDTaintedArray.getClassForComponentType(arrayType.getElementType().getSort()));
+									main.desc = arrayType.getInternalName();
+								}
+								if (needToHackDims) {
+									if (main.dims == 2) {
+										uninstrumented.instructions.insertBefore(insn, new InsnNode(SWAP));
+									} else if (main.dims == 3) {
+										uninstrumented.instructions.insertBefore(insn, new InsnNode(DUP_X2));
+										uninstrumented.instructions.insertBefore(insn, new InsnNode(POP));
+									} else {
+										throw new IllegalArgumentException();
+									}
+									//Stack has Capacity repeated dims times
+									main.dims--;
+									//NB that this is backwards
+									uninstrumented.instructions.insert(insn, new MethodInsnNode(INVOKESTATIC, Type.getInternalName((Configuration.MULTI_TAINTING ? MultiDTaintedArrayWithObjTag.class : MultiDTaintedArrayWithIntTag.class)), "initLastDim",
+											"([Ljava/lang/Object;I)V",false));
+									uninstrumented.instructions.insert(insn, new IntInsnNode(BIPUSH, origType.getSort()));
+									uninstrumented.instructions.insert(insn, new InsnNode(DUP));
+
+								}
+								break;
+							case Opcodes.ANEWARRAY:
+								TypeInsnNode tin = (TypeInsnNode) insn;
+								Type t = Type.getType(tin.desc);
+								if (t.getElementType().getDescriptor().length() == 1) {
+									//e.g. [I for a 2 D array -> MultiDTaintedIntArray
+									tin.desc = MultiDTaintedArray.getTypeForType(t).getInternalName();
+								}
+								break;
+							case Opcodes.GETSTATIC:
+							case Opcodes.GETFIELD:
+								assert false; // should never happen?
+								break;
+							case Opcodes.PUTSTATIC:
+							case Opcodes.PUTFIELD:
+								fin = (FieldInsnNode) insn;
+								t = Type.getType(fin.desc);
+								switch (t.getSort()) {
+								case Type.INT:
+								case Type.BOOLEAN:
+								case Type.BYTE:
+								case Type.CHAR:
+								case Type.SHORT:
+								case Type.FLOAT:
+									uninstrumented.instructions.insertBefore(insn, generateNullTaint(null, tagOffset));
+									uninstrumented.instructions.insertBefore(insn, new FieldInsnNode(PUTSTATIC, fin.owner, fin.name + TaintUtils.TAINT_FIELD, Configuration.TAINT_TAG_DESC));
+									break;
+								case Type.ARRAY:
+									switch (t.getElementType().getSort()) {
+									case Type.INT:
+									case Type.BOOLEAN:
+									case Type.BYTE:
+									case Type.CHAR:
+									case Type.DOUBLE:
+									case Type.FLOAT:
+									case Type.LONG:
+									case Type.SHORT:
+										if (t.getDimensions() > 1) {
+											fin.desc = MultiDTaintedArray.getTypeForType(Type.getType(fin.desc)).getDescriptor();
+										} else {
+											uninstrumented.instructions.insertBefore(insn, new InsnNode(Opcodes.DUP));
+											//Initialize a new 1D array of the right length
+											uninstrumented.instructions.insertBefore(insn, new InsnNode(Opcodes.DUP));
+											uninstrumented.instructions.insertBefore(insn, new InsnNode(Opcodes.ARRAYLENGTH));
+											if(!Configuration.MULTI_TAINTING) {
+												uninstrumented.instructions.insertBefore(insn, new IntInsnNode(Opcodes.NEWARRAY, Opcodes.T_INT));
+												assert false;
+											} else {
+												uninstrumented.instructions.insertBefore(insn, new TypeInsnNode(Opcodes.ANEWARRAY, Configuration.TAINT_TAG_INTERNAL_NAME));
+											}
+											uninstrumented.instructions.insertBefore(insn, new FieldInsnNode(PUTSTATIC, fin.owner, fin.name + TaintUtils.TAINT_FIELD, Configuration.TAINT_TAG_ARRAYDESC));
+										}
+										break;
+									case Type.OBJECT:
+									}
+
+									break;
+								}
+
+								break;
+							case Opcodes.AASTORE:
+								if (an.stack.get(an.stack.size() - 1) instanceof String) {
+									Type storeType = Type.getObjectType((String) an.stack.get(an.stack.size() - 1));
+									if (storeType.getSort() == Type.ARRAY && storeType.getElementType().getSort() != Type.OBJECT) {
+										uninstrumented.instructions.insertBefore(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, Type.getInternalName((Configuration.MULTI_TAINTING ? MultiDTaintedArrayWithObjTag.class : MultiDTaintedArrayWithIntTag.class)),
+												"boxIfNecessary", "(Ljava/lang/Object;)Ljava/lang/Object;",false));
+										uninstrumented.instructions.insertBefore(insn, new TypeInsnNode(Opcodes.CHECKCAST, MultiDTaintedArray.getTypeForType(storeType).getInternalName()));
+									}
+								}
+								break;
+							case Opcodes.IRETURN:
+							case Opcodes.LRETURN:
+							case Opcodes.FRETURN:
+							case Opcodes.DRETURN:
+								uninstrumented.instructions.insertBefore(insn, generateNullTaint(null, tagOffset));
+								uninstrumented.instructions.insertBefore(insn, new InsnNode(TaintUtils.IGNORE_EVERYTHING));
+								AbstractInsnNode next = new InsnNode(TaintUtils.IGNORE_EVERYTHING);
+								uninstrumented.instructions.insert(insn, next);
+								insn.accept(an);
+								insn = next.getNext();
+								continue;
+							case Opcodes.ARETURN:
+							default:
+								break;
+							}
+							if (insn.getOpcode() < 200)
+								insn.accept(an);
+							insn = insn.getNext();
+						}
+						uninstrumented.accept(cmv);
+						return;
 					}
 				});
 			}

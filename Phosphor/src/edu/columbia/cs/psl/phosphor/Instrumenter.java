@@ -239,6 +239,7 @@ public class Instrumenter {
 	static Option opt_withoutPropogation = new Option("withoutPropogation","Disable all tag propogation - still create method stubs and wrappers as per other options, but don't actually propogate tags");
 	static Option opt_enumPropogation = new Option("withEnumsByValue","Propogate tags to enums as if each enum were a value (not a reference) through the Enum.valueOf method");
 	static Option opt_unboxAcmpEq = new Option("forceUnboxAcmpEq","At each object equality comparison, ensure that all operands are unboxed (and not boxed types, which may not pass the test)");
+	static Option opt_autoTaint = new Option("autoTaint", "At every method return add calls into Staccato");
 
 	static Option help = new Option( "help", "print this message" );
 
@@ -259,6 +260,7 @@ public class Instrumenter {
 		options.addOption(opt_withoutPropogation);
 		options.addOption(opt_enumPropogation);
 		options.addOption(opt_unboxAcmpEq);
+		options.addOption(opt_autoTaint);
 
 	    CommandLineParser parser = new BasicParser();
 	    CommandLine line = null;
@@ -293,6 +295,7 @@ public class Instrumenter {
 		Configuration.WITHOUT_PROPOGATION = line.hasOption("withoutPropogation");
 		Configuration.WITH_ENUM_BY_VAL = line.hasOption("withEnumsByValue");
 		Configuration.WITH_UNBOX_ACMPEQ = line.hasOption("forceUnboxAcmpEq");
+		Configuration.AUTO_TAINT = line.hasOption("autoTaint");
 		Configuration.init();
 
 		if (Configuration.DATAFLOW_TRACKING)

@@ -33,7 +33,7 @@ import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithObjTag;
 
 public class TaintPassingMV extends TaintAdapter implements Opcodes {
 
-	private static final boolean TAINT_COPY_SEMANTICS = false;
+	private static boolean TAINT_COPY_SEMANTICS = false;
 	
 	public int lastArg;
 	Type originalMethodReturnType;

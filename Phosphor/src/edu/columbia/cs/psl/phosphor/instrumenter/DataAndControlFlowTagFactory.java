@@ -35,7 +35,6 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 	}
 	
 	public static boolean IGNORE_TAINT_FOR_INSTANCEOF = true;
-	public static boolean IGNORE_TAINT_FOR_LENGTH = true;
 
 	@Override
 	public void intOp(int opcode, int arg, MethodVisitor mv, LocalVariableManager lvs, TaintPassingMV adapter) {
@@ -497,7 +496,7 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 					//TA A
 					mv.visitInsn(SWAP);
 					loaded = true;
-					if(Configuration.MULTI_TAINTING && Configuration.IMPLICIT_TRACKING && !IGNORE_TAINT_FOR_LENGTH)
+					if(Configuration.MULTI_TAINTING && Configuration.IMPLICIT_TRACKING && Configuration.ARRAY_LENGTH_TRACKING)
 					{
 						mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintObj", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
 						mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
@@ -514,7 +513,7 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 				}
 				if (!loaded) {
 					mv.visitInsn(DUP);
-					if(Configuration.MULTI_TAINTING && Configuration.IMPLICIT_TRACKING && !IGNORE_TAINT_FOR_LENGTH)
+					if(Configuration.MULTI_TAINTING && Configuration.IMPLICIT_TRACKING && Configuration.ARRAY_LENGTH_TRACKING)
 					{
 						mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(TaintUtils.class), "getTaintObj", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
 						mv.visitTypeInsn(CHECKCAST, Configuration.TAINT_TAG_INTERNAL_NAME);
