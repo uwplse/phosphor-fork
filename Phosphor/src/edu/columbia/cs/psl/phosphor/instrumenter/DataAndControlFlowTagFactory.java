@@ -6,6 +6,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import edu.columbia.cs.psl.phosphor.Configuration;
+import edu.columbia.cs.psl.phosphor.Instrumenter;
 import edu.columbia.cs.psl.phosphor.TaintUtils;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
 import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
@@ -621,6 +622,8 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 				}
 				if(Configuration.WITH_UNBOX_ACMPEQ && (opcode == Opcodes.IF_ACMPEQ || opcode == Opcodes.IF_ACMPNE))
 				{
+//					Type firstOpStack = ta.getTopOfStackType();
+//					Type secondOpOnStack = ta.getStackTypeAtOffset(1);
 					mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "ensureUnboxed", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
 					mv.visitInsn(SWAP);
 					mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "ensureUnboxed", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
@@ -682,10 +685,26 @@ public class DataAndControlFlowTagFactory implements TaintTagFactory, Opcodes {
 				}
 				if(Configuration.WITH_UNBOX_ACMPEQ && (opcode == Opcodes.IF_ACMPEQ || opcode == Opcodes.IF_ACMPNE))
 				{
-					mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "ensureUnboxed", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-					mv.visitInsn(SWAP);
-					mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "ensureUnboxed", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-					mv.visitInsn(SWAP);
+					boolean noUnboxTop = 
+						typeOnStack.getSort() != Type.OBJECT ||
+						(
+							!typeOnStack.getInternalName().startsWith("edu/columbia/cs/psl/phosphor/struct/multid/MultiDTainted") &&
+							Instrumenter.definitelyNotEnum(typeOnStack.getInternalName())
+						);
+					boolean noUnboxSecond =
+							secondOnStack.getSort() != Type.OBJECT ||
+							(
+								!secondOnStack.getInternalName().startsWith("edu/columbia/cs/psl/phosphor/struct/multid/MultiDTainted") &&
+								Instrumenter.definitelyNotEnum(secondOnStack.getInternalName())
+							);
+					if(!noUnboxTop) {
+						mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "ensureUnboxed", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+					}
+					if(!noUnboxSecond) {
+						mv.visitInsn(SWAP);
+						mv.visitMethodInsn(Opcodes.INVOKESTATIC, Type.getInternalName(TaintUtils.class), "ensureUnboxed", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+						mv.visitInsn(SWAP);
+					}
 				}
 				mv.visitJumpInsn(opcode, label);
 				break;

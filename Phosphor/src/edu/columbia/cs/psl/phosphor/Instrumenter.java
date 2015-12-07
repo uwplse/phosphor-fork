@@ -168,11 +168,31 @@ public class Instrumenter {
 				|| owner.startsWith("sun/reflect/GeneratedMethodAccessor") || owner.startsWith("sun/reflect/GeneratedConstructorAccessor")
 				|| owner.startsWith("sun/reflect/GeneratedSerializationConstructor") || owner.startsWith("sun/awt/image/codec/")
 				|| owner.startsWith("java/lang/invoke/LambdaForm")
+				|| owner.startsWith("com/jprofiler")
+//				|| owner.startsWith("com/sun/jmx")
+//				|| owner.startsWith("sun/management") || owner.startsWith("javax/management") //|| owner.startsWith("sun/rmi") || owner.startsWith("java/rmi")
+				//|| owner.startsWith("java/lang/management")
 				;
 	}
 
 
 	public static HashMap<String, ClassNode> classes = new HashMap<String, ClassNode>();
+	
+	public static boolean definitelyNotEnum(String typeName) {
+		if(classes.containsKey(typeName)) {
+			ClassNode cn = classes.get(typeName);
+			boolean isEnum = (cn.access & Opcodes.ACC_ENUM) != 0;
+			assert "java/lang/Enum".equals(cn.superName) == isEnum : cn.name + " " + cn.superName + " and "  + isEnum;
+			return !isEnum;
+		} else {
+			try {
+				Class<?> klass = loader.loadClass(typeName.replace('/', '.'));
+				return !klass.isEnum();
+			} catch (ClassNotFoundException e) {
+				return false;
+			}
+		}
+	}
 
 	public static void analyzeClass(InputStream is) {
 		ClassReader cr;
@@ -185,6 +205,7 @@ public class Instrumenter {
 					super.visit(version, access, name, signature, superName, interfaces);
 					ClassNode cn = new ClassNode();
 					cn.name = name;
+					cn.access = access;
 					cn.superName = superName;
 					cn.interfaces = new ArrayList<String>();
 					Instrumenter.classes.put(name, cn);
@@ -311,6 +332,10 @@ public class Instrumenter {
 			System.out.println("Multi taint: enabled");
 		else
 			System.out.println("Taints will be combined with logical-or.");
+		
+		System.out.println("Enums by val: " + (Configuration.WITH_ENUM_BY_VAL ? "enabled" : "disabled"));
+		System.out.println("Unbox acmp: " + (Configuration.WITH_UNBOX_ACMPEQ ? "enabled" : "disabled"));
+		System.out.println("Auto-taint: " + (Configuration.AUTO_TAINT ? "enabled": "disabled"));
 
 		TaintTrackingClassVisitor.IS_RUNTIME_INST = false;
 		ANALYZE_ONLY = true;

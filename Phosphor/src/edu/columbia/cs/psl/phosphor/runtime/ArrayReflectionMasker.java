@@ -2,8 +2,10 @@ package edu.columbia.cs.psl.phosphor.runtime;
 
 import java.lang.reflect.Array;
 
-import edu.columbia.cs.psl.phosphor.TaintUtils;
 import org.objectweb.asm.Type;
+
+import edu.columbia.cs.psl.phosphor.Instrumenter;
+import edu.columbia.cs.psl.phosphor.TaintUtils;
 import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
 import edu.columbia.cs.psl.phosphor.struct.TaintedBooleanWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedBooleanWithObjTag;
@@ -21,6 +23,7 @@ import edu.columbia.cs.psl.phosphor.struct.TaintedLongWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedLongWithObjTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedShortWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedShortWithObjTag;
+import edu.columbia.cs.psl.phosphor.struct.TaintedWithObjTag;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithObjTag;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedBooleanArrayWithIntTag;
@@ -431,12 +434,19 @@ public class ArrayReflectionMasker {
 	}
 
 	public static Object tryToGetTaintObj(Object val) {
-		try {
+		if(Instrumenter.isClassWithHashmapTag(val.getClass().getName().replace('.', '/'))) {
+			return BoxedPrimitiveStoreWithObjTags.getTaint(val, 1);
+		} else if(val instanceof TaintedWithObjTag) {
+			return ((TaintedWithObjTag)val).getPHOSPHOR_TAG();
+		} else {
+			return null;
+		}
+		/*try {
 			val.getClass().getDeclaredField("valuePHOSPHOR_TAG").setAccessible(true);
 			return val.getClass().getDeclaredField("valuePHOSPHOR_TAG").get(val);
 		} catch (Exception ex) {
 			return null;
-		}
+		}*/
 	}
 
 	public static void set$$PHOSPHORTAGGED(Object obj, int idxtaint, int idx, Object val) {
