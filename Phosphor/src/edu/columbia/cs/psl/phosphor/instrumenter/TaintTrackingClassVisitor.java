@@ -99,7 +99,7 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		addTaintField = true;
 		addTaintMethod = true;
-		isUnwrapClass = /*name.startsWith("sun/security/pkcs11") || name.equals("freemarker/core/FMParserTokenManager") || */ 
+		isUnwrapClass = name.startsWith("sun/security/pkcs11") || /* name.equals("freemarker/core/FMParserTokenManager") || */ 
 			name.startsWith("java/lang/ThreadLocal") || 
 			name.startsWith("java/util/concurrent/locks/ReentrantReadWriteLock") || 
 			name.equals("java/util/concurrent/locks/AbstractQueuedSynchronizer") || 
@@ -160,7 +160,8 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 			}
 		}
 		this.actuallyAddField = name.equals("java/lang/Integer") || name.equals("java/lang/Long") || name.equals("java/lang/Double")
-				|| name.equals("java/lang/String") || name.equals("java/lang/Float") || Configuration.AUTO_TAINT;
+				|| name.equals("java/lang/String") || name.equals("java/lang/Float") || Configuration.AUTO_TAINT
+				|| (name.equals("java/lang/Enum") && Configuration.WITH_ENUM_BY_VAL);
 
 		if (isNormalClass && !Instrumenter.isIgnoredClass(name) && !FIELDS_ONLY && actuallyAddField) {
 			this.addTaintCarry = Configuration.AUTO_TAINT && !Arrays.asList(interfaces).contains("edu/washington/cse/instrumentation/runtime/TaintCarry");
@@ -518,17 +519,46 @@ public class TaintTrackingClassVisitor extends ClassVisitor {
 
 	@Override
 	public void visitEnd() {
-
-		if((isEnum || className.equals("java/lang/Enum")) && Configuration.WITH_ENUM_BY_VAL)
-		{
+		if(className.equals("java/lang/Enum") && Configuration.WITH_ENUM_BY_VAL) {
 			MethodVisitor mv = super.visitMethod(Opcodes.ACC_PUBLIC, "clone", "()Ljava/lang/Object;", null, new String[]{"java/lang/CloneNotSupportedException"});
 			mv.visitCode();
+			// O
 			mv.visitVarInsn(Opcodes.ALOAD, 0);
+			// O
 			mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "clone", "()Ljava/lang/Object;",false);
+			mv.visitTypeInsn(Opcodes.CHECKCAST, Type.getInternalName(Enum.class));
+			// O O
+			mv.visitInsn(Opcodes.DUP);
+			// O O O
+			mv.visitInsn(Opcodes.DUP);
+			// O O S
+			mv.visitFieldInsn(Opcodes.GETFIELD, Type.getInternalName(Enum.class), "name", Type.getDescriptor(String.class));
+			// O O [C
+			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, Type.getInternalName(String.class), "toCharArray", "()[C", false);
+			// O O [C <NEW>
+			mv.visitTypeInsn(Opcodes.NEW, Type.getInternalName(String.class));
+			// O O <NEW> [C <NEW> 
+			mv.visitInsn(Opcodes.DUP_X1);
+			// O O <NEW> <NEW> [C
+			mv.visitInsn(Opcodes.SWAP);
+			// O O S'
+			mv.visitMethodInsn(Opcodes.INVOKESPECIAL, Type.getInternalName(String.class), "<init>", "([C)V", false);
+			// O
+			mv.visitFieldInsn(Opcodes.PUTFIELD, Type.getInternalName(Enum.class), "name", Type.getDescriptor(String.class));
 
 			mv.visitInsn(Opcodes.ARETURN);
 			mv.visitEnd();
-			mv.visitMaxs(0, 0);			
+			mv.visitMaxs(4, 0);			
+		} else if(isEnum && Configuration.WITH_ENUM_BY_VAL) {
+			MethodVisitor mv = super.visitMethod(Opcodes.ACC_PUBLIC, "clone", "()Ljava/lang/Object;", null, new String[]{"java/lang/CloneNotSupportedException"});
+			mv.visitCode();
+			// O
+			mv.visitVarInsn(Opcodes.ALOAD, 0);
+			// O
+			mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Enum", "clone", "()Ljava/lang/Object;",false);
+			mv.visitInsn(Opcodes.ARETURN);
+			mv.visitEnd();
+			mv.visitMaxs(0, 0);
 		}
 		boolean goLightOnGeneratedStuff = !Instrumenter.IS_ANDROID_INST && className.equals("java/lang/Byte");
 //		if (isAnnotation) {
