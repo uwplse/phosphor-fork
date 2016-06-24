@@ -1,15 +1,10 @@
 package edu.columbia.cs.psl.phosphor.instrumenter;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
-import edu.columbia.cs.psl.phosphor.Configuration;
-import edu.columbia.cs.psl.phosphor.Instrumenter;
-import edu.columbia.cs.psl.phosphor.TaintUtils;
-import edu.columbia.cs.psl.phosphor.instrumenter.analyzer.NeverNullArgAnalyzerAdapter;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -20,22 +15,26 @@ import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.util.Printer;
 import org.objectweb.asm.util.Textifier;
+
+import edu.columbia.cs.psl.phosphor.Configuration;
+import edu.columbia.cs.psl.phosphor.Instrumenter;
+import edu.columbia.cs.psl.phosphor.TaintUtils;
+import edu.columbia.cs.psl.phosphor.instrumenter.analyzer.NeverNullArgAnalyzerAdapter;
 import edu.columbia.cs.psl.phosphor.runtime.BoxedPrimitiveStoreWithIntTags;
 import edu.columbia.cs.psl.phosphor.runtime.BoxedPrimitiveStoreWithObjTags;
 import edu.columbia.cs.psl.phosphor.runtime.MultiTainter;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
-import edu.columbia.cs.psl.phosphor.runtime.TaintChecker;
 import edu.columbia.cs.psl.phosphor.runtime.TaintSentinel;
 import edu.columbia.cs.psl.phosphor.runtime.Tainter;
 import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
-import edu.columbia.cs.psl.phosphor.struct.EnqueuedTaint;
-import edu.columbia.cs.psl.phosphor.struct.TaintedMisc;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArray;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithObjTag;
 
 public class TaintPassingMV extends TaintAdapter implements Opcodes {
 
+	private static boolean TAINT_COPY_SEMANTICS = false;
+	
 	public int lastArg;
 	Type originalMethodReturnType;
 	Type newReturnType;
@@ -479,7 +478,7 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 			case Opcodes.FSTORE:
 			case Opcodes.DSTORE:
 				super.visitVarInsn(opcode, var);
-				if(Configuration.MULTI_TAINTING)
+				if(Configuration.MULTI_TAINTING && TAINT_COPY_SEMANTICS)
 				{
 					super.visitMethodInsn(Opcodes.INVOKESTATIC, Configuration.TAINT_TAG_INTERNAL_NAME, "copyTaint", "("+Configuration.TAINT_TAG_DESC+")"+Configuration.TAINT_TAG_DESC, false);
 				}
@@ -619,12 +618,13 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 
 						FrameNode fn = getCurrentFrameNode();
 						super.visitInsn(DUP);
-						if(!ignoreLoadingNextTaint && !isIgnoreAllInstrumenting)
-						super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+						if(!ignoreLoadingNextTaint && !isIgnoreAllInstrumenting) {
+							super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+						}
 						super.visitJumpInsn(IFNULL, isNull);
-						if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting)
-						super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
-
+						if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting) {
+							super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+						}
 						//		System.out.println("unbox: " + onStack + " type passed is " + type);
 						super.visitFieldInsn(GETFIELD, newType.getInternalName(), "val", descType.getDescriptor());
 						super.visitJumpInsn(GOTO, isDone);
@@ -688,8 +688,9 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 					super.visitInsn(SWAP);
 					super.visitFieldInsn(opcode, owner, name, desc);
 				}
-			} else
+			} else {
 				super.visitFieldInsn(opcode, owner, name, desc);
+			}
 			break;
 		case Opcodes.PUTSTATIC:
 			if (getTopOfStackType().getSort() == Type.OBJECT && descType.getSort() == Type.ARRAY && descType.getDimensions() == 1 && descType.getElementType().getSort() != Type.OBJECT)
@@ -710,7 +711,7 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 					{
 						if(shadowType.length() == 1)
 						{
-							if(Configuration.MULTI_TAINTING)
+							if(Configuration.MULTI_TAINTING && TAINT_COPY_SEMANTICS)
 							{
 								super.visitMethodInsn(Opcodes.INVOKESTATIC, Configuration.TAINT_TAG_INTERNAL_NAME, "copyTaint", "("+Configuration.TAINT_TAG_DESC+")"+Configuration.TAINT_TAG_DESC, false);
 							}
@@ -901,11 +902,13 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 		FrameNode fn = getCurrentFrameNode();
 
 		super.visitInsn(DUP);
-		if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting)
-		super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+		if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting) {
+			super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+		}
 		super.visitJumpInsn(IFNULL, isNull);
-		if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting)
-		super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+		if(!ignoreLoadingNextTaint&& !isIgnoreAllInstrumenting) {
+			super.visitInsn(TaintUtils.IGNORE_EVERYTHING);
+		}
 
 		//		System.out.println("unbox: " + onStack + " type passed is " + type);
 
@@ -1308,6 +1311,7 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 			hasNewName = false;
 		}
 		if (((Instrumenter.isIgnoredClass(owner) || Instrumenter.isIgnoredMethod(owner, name, desc)) && !owner.startsWith("edu/columbia/cs/psl/phosphor/runtime"))
+				 || name.startsWith("_staccato") || name.startsWith("__staccato")
 			) {
 			Type[] args = Type.getArgumentTypes(desc);
 			if (TaintUtils.DEBUG_CALLS) {
@@ -1645,7 +1649,6 @@ public class TaintPassingMV extends TaintAdapter implements Opcodes {
 			return;
 		}
 		if (opcode == TaintUtils.IGNORE_EVERYTHING) {
-//			System.err.println("VisitInsn is ignoreverything! in  " + name);
 //			new Exception().printStackTrace();
 			isIgnoreAllInstrumenting = !isIgnoreAllInstrumenting;
 			isIgnoreEverything = !isIgnoreEverything;

@@ -132,6 +132,10 @@ public final class Taint {
 	{
 		if(obj == null || t1 == null || IGNORE_TAINTING)
 			return;
+		if(Configuration.taintCombiner != null) {
+			Configuration.taintCombiner.combineTagsInPlace(obj, t1);
+			return;
+		}
 		Taint t = (Taint) TaintUtils.getTaintObj(obj);
 		if(t == null)
 		{
@@ -142,6 +146,9 @@ public final class Taint {
 	}
 	public static Taint combineTags(Taint t1, Taint t2)
 	{
+		if(Configuration.taintCombiner != null) {
+			return Configuration.taintCombiner.combineTags(t1, t2);
+		}
 		if(t1 == null && t2 == null)
 			return null;
 		if(t2 == null)
@@ -162,6 +169,9 @@ public final class Taint {
 		return r;
 	}
 	public static Taint combineTags(Taint t1, ControlTaintTagStack tags){
+		if(Configuration.taintCombiner != null) {
+			return Configuration.taintCombiner.combineTags(t1, tags);
+		}
 		if(t1 == null && tags.isEmpty())
 			return null;
 		else if(t1 == null)
@@ -186,6 +196,10 @@ public final class Taint {
 	{
 		if(tags.isEmpty() || IGNORE_TAINTING)
 			return;
+		if(Configuration.taintCombiner != null) {
+			Configuration.taintCombiner.combineTagsOnObject(o, tags);
+			return;
+		}
 		if(o instanceof TaintedWithObjTag)
 		{
 			if(o instanceof String)

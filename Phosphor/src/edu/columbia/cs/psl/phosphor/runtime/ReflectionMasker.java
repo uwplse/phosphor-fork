@@ -3,7 +3,6 @@ package edu.columbia.cs.psl.phosphor.runtime;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.WeakHashMap;
 
 import sun.reflect.ReflectionFactory;
@@ -13,7 +12,6 @@ import org.objectweb.asm.Type;
 import edu.columbia.cs.psl.phosphor.struct.ArrayList;
 import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
 import edu.columbia.cs.psl.phosphor.struct.MethodInvoke;
-import edu.columbia.cs.psl.phosphor.struct.Tainted;
 import edu.columbia.cs.psl.phosphor.struct.TaintedBooleanArrayWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedBooleanArrayWithObjTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedBooleanWithIntTag;
@@ -52,7 +50,6 @@ import edu.columbia.cs.psl.phosphor.struct.TaintedShortWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedShortWithObjTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedWithObjTag;
-import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArray;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.multid.MultiDTaintedArrayWithObjTag;
 
@@ -68,6 +65,12 @@ public class ReflectionMasker {
 	public static Method getTaintMethodControlTrack(Method m) {
 		if (m.getDeclaringClass().isAnnotation())
 			return m;
+		if(m.getName().startsWith("_staccato")) {
+			return m;
+		}
+		if(m.getName().startsWith("__staccato")) {
+			return m;
+		}
 		final char[] chars = m.getName().toCharArray();
 		if (chars.length > SUFFIX_LEN) {
 			boolean isEq = true;

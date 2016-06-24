@@ -2,6 +2,8 @@ package edu.columbia.cs.psl.phosphor.runtime;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.Map;
 import java.util.WeakHashMap;
 
 import edu.columbia.cs.psl.phosphor.Configuration;
@@ -397,7 +399,7 @@ public class RuntimeReflectionPropogator {
 		return ret;
 	}
 
-	static WeakHashMap<Field, Field> fieldToField = new WeakHashMap<Field, Field>();
+	static Map<Field, Field> fieldToField = Collections.synchronizedMap(new WeakHashMap<Field, Field>());
 
 	public static TaintedIntWithIntTag getInt$$PHOSPHORTAGGED(Field f, Object obj, TaintedIntWithIntTag ret) throws IllegalArgumentException, IllegalAccessException {
 		f.setAccessible(true);

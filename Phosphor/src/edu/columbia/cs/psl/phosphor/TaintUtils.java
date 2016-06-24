@@ -3,10 +3,10 @@ package edu.columbia.cs.psl.phosphor;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 
-
-import sun.misc.VM;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+
+import sun.misc.VM;
 import edu.columbia.cs.psl.phosphor.runtime.ArrayHelper;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
 import edu.columbia.cs.psl.phosphor.runtime.TaintSentinel;
@@ -580,7 +580,7 @@ public class TaintUtils {
 				r += MultiDTaintedArray.getTypeForType(t);
 			}
 			else
-				r += t;
+				r += t.getDescriptor();
 		}
 		if(Configuration.IMPLICIT_TRACKING)
 			r += Type.getDescriptor(ControlTaintTagStack.class);
@@ -612,12 +612,25 @@ public class TaintUtils {
 				throw new IllegalArgumentException("Got: "+t);
 		}
 	}
+	
+	public static Object maybeUnbox$$PHOSPHORTAGGED(Object o) {
+		if(o == null) {
+			return null;
+		} else if(Configuration.MULTI_TAINTING && o instanceof MultiDTaintedArrayWithObjTag) {
+			return ((MultiDTaintedArrayWithObjTag)o).getVal();
+		} else if(!Configuration.MULTI_TAINTING && o instanceof MultiDTaintedArrayWithIntTag) {
+			return ((MultiDTaintedArrayWithIntTag)o).getVal();
+		} else {
+			return o;
+		}
+	}
 
 
 	public static Object[] newTaintArray(int len)
 	{
 		return (Object[]) Array.newInstance(Configuration.TAINT_TAG_OBJ_CLASS, len);
 	}
+
 	private static <T> T shallowClone(T obj)
 	{
 		try{
@@ -631,6 +644,7 @@ public class TaintUtils {
 			return null;
 		}
 	}
+
 	public static <T extends Enum<T>> T enumValueOf(Class<T> enumType, String name) {
 		T ret = Enum.valueOf(enumType, name);
 		if (((Object)name) instanceof TaintedWithIntTag) {

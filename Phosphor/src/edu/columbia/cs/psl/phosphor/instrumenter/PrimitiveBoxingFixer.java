@@ -85,9 +85,11 @@ public class PrimitiveBoxingFixer extends TaintAdapter implements Opcodes {
 		}
 		int nArgs = Type.getArgumentTypes(desc).length;
 		boolean argIsStr = false;
-		for (Type t : Type.getArgumentTypes(desc))
-			if (t.getSort() == Type.OBJECT)
+		for (Type t : Type.getArgumentTypes(desc)) {
+			if (t.getSort() == Type.OBJECT && t.getInternalName().equals("java/lang/String")) {
 				argIsStr = true;
+			}
+		}
 		//Get an extra copy of the taint
 		if(Configuration.WITH_ENUM_BY_VAL && opcode == INVOKESTATIC && owner.equals(Type.getInternalName(Enum.class)))
 		{
@@ -97,7 +99,8 @@ public class PrimitiveBoxingFixer extends TaintAdapter implements Opcodes {
 		else if ((owner.equals(Type.getInternalName(Integer.class))
 		//				|| owner.equals(Type.getInternalName(Byte.class))
 		//				|| owner.equals(Type.getInternalName(Character.class))
-		//				|| owner.equals(Type.getInternalName(Short.class)) ||  owner.equals(Type.getInternalName(Float.class)) 
+		//				|| owner.equals(Type.getInternalName(Short.class))
+				||  owner.equals(Type.getInternalName(Float.class)) 
 				|| owner.equals(Type.getInternalName(Long.class)) || owner.equals(Type.getInternalName(Double.class))) && name.equals("valueOf$$PHOSPHORTAGGED") && nArgs == 2 && !argIsStr) {
 			Type argT = Type.getArgumentTypes(desc)[1];
 			int argSize = argT.getSize();
@@ -110,7 +113,7 @@ public class PrimitiveBoxingFixer extends TaintAdapter implements Opcodes {
 				super.visitInsn(DUP);
 				Label makeNew = new Label();
 				Label isOK = new Label();
-				super.visitJumpInsn(IFNE, makeNew);
+				super.visitJumpInsn(Configuration.CHECK_NONNULL_TAINT_OPCODE, makeNew);
 				super.visitInsn(SWAP);
 				super.visitMethodInsn(opcode, owner, name, desc, itfc);
 				super.visitJumpInsn(GOTO, isOK);
@@ -124,25 +127,25 @@ public class PrimitiveBoxingFixer extends TaintAdapter implements Opcodes {
 				super.visitInsn(Opcodes.POP2);
 				//N N T I
 				super.visitInsn(Opcodes.ACONST_NULL);
-				super.visitMethodInsn(Opcodes.INVOKESPECIAL, owner, "<init>", "(I" + Type.getArgumentTypes(desc)[1].getDescriptor() + Type.getDescriptor(TaintSentinel.class) + ")V",false);
+				super.visitMethodInsn(Opcodes.INVOKESPECIAL, owner, "<init>", "(" + Configuration.TAINT_TAG_DESC + Type.getArgumentTypes(desc)[1].getDescriptor() + Type.getDescriptor(TaintSentinel.class) + ")V",false);
 				FrameNode fn2 = getCurrentFrameNode();
 				super.visitLabel(isOK);
 				if(!followedByFrame)
 					acceptFn(fn2);
 			} else {
 				//T V V <top>
-				super.visitInsn(DUP2_X1);
-				super.visitInsn(POP2);
+				super.visitInsn(DUP2_X1); // VV T VV
+				super.visitInsn(POP2); // VV T
 				//VV T
 				FrameNode fn = getCurrentFrameNode();
-				super.visitInsn(DUP);
+				super.visitInsn(DUP); // VV T T
 				Label makeNew = new Label();
 				Label isOK = new Label();
-				super.visitJumpInsn(IFNE, makeNew);
-				//T VV 
-				super.visitInsn(DUP_X2);
-				super.visitInsn(POP);
-				super.visitMethodInsn(opcode, owner, name, desc, false);
+				super.visitJumpInsn(Configuration.CHECK_NONNULL_TAINT_OPCODE, makeNew);
+				// VV T
+				super.visitInsn(DUP_X2); // T VV T
+				super.visitInsn(POP); // T VV
+				super.visitMethodInsn(opcode, owner, name, desc, false); // O
 				FrameNode fn2 = getCurrentFrameNode();
 				super.visitJumpInsn(GOTO, isOK);
 				super.visitLabel(makeNew);

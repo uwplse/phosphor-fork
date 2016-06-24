@@ -10,13 +10,12 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.List;
-
-import edu.columbia.cs.psl.phosphor.instrumenter.TaintTrackingClassVisitor;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -33,10 +32,10 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.util.CheckClassAdapter;
 import org.objectweb.asm.util.TraceClassVisitor;
 
+import edu.columbia.cs.psl.phosphor.instrumenter.TaintTrackingClassVisitor;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
 import edu.columbia.cs.psl.phosphor.runtime.TaintInstrumented;
 import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
-import edu.columbia.cs.psl.phosphor.struct.Tainted;
 import edu.columbia.cs.psl.phosphor.struct.TaintedByteArrayWithIntTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedByteArrayWithObjTag;
 import edu.columbia.cs.psl.phosphor.struct.TaintedWithIntTag;
@@ -153,26 +152,93 @@ public class PreMain {
 			Configuration.taintTagFactory.instrumentationEnding(className);
 			return ret;
 		}
+		
+		private static void dumpClass(String className, byte[] buffer) throws IOException {
+			if (DEBUG) {
+				File debugDir = new File("/tmp/debug");
+				if (!debugDir.exists())
+					debugDir.mkdir();
+				File f = new File("/tmp/debug/" + className.replace("/", ".") + ".class");
+				System.out.println(f.getAbsolutePath());
+				try(FileOutputStream fos = new FileOutputStream(f)) {
+					fos.write(buffer);
+				}
+			}
+		}
+		
+		public static boolean didIt = false;
+		
+		private static class StaccatoAccess {
+			private static Method _start = null;
+			private static Method _end = null;
+			
+			int start() {
+				if(_start != null) {
+					try {
+						boolean state = (Boolean)_start.invoke(null);
+						return state ? 1 : 0;
+					} catch (IllegalAccessException | IllegalArgumentException
+							| InvocationTargetException e) {
+						return -1;
+					}
+				}
+				return -1;
+			}
+			
+			void end(int flag) {
+				if(_end != null && flag != -1) {
+					try {
+						_end.invoke(null, flag == 1);
+					} catch (IllegalAccessException | IllegalArgumentException
+							| InvocationTargetException e) {
+					}
+				}
+			}
+			
+			static {
+				try {
+					Class<?> tKlass = Class.forName("edu.washington.cse.instrumentation.runtime.TaintPropagation");
+					_start = tKlass.getMethod("__block_prop");
+					_end = tKlass.getMethod("__restore_prop", boolean.class);
+					System.out.println("Using staccato");
+				} catch (NoSuchMethodException | SecurityException | ClassNotFoundException e) {
+					_start = _end = null;
+				}
+			}
+			
+		}
+		
+		private static class StaccatoIntegration {
+			static StaccatoAccess sa = new StaccatoAccess();
+		}
+		
+		MessageDigest md5inst;
 
 		public byte[] transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer)
 				throws IllegalClassFormatException {
+			int flag = StaccatoIntegration.sa.start();
+			try {
 			Configuration.taintTagFactory.instrumentationStarting(className2);
+			
 			byte[] ret = _transform(loader, className2, classBeingRedefined, protectionDomain, classfileBuffer);
 			Configuration.taintTagFactory.instrumentationEnding(className2);
 			return ret;
+				} finally {
+					StaccatoIntegration.sa.end(flag);
+				}
 		}
-
-		MessageDigest md5inst;
 
 		private byte[] _transform(ClassLoader loader, final String className2, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer)
 				throws IllegalClassFormatException {
 			ClassReader cr = new ClassReader(classfileBuffer);
+			
 			String className = cr.getClassName();
 			innerException = false;
+
 //			bigLoader = loader;
 //			Instrumenter.loader = bigLoader;
 			if (Instrumenter.isIgnoredClass(className)) {
-				//				System.out.println("Premain.java ignore: " + className);
+				System.out.println("Premain.java ignore: " + className);
 				return classfileBuffer;
 			}
 			
@@ -185,19 +251,23 @@ public class PreMain {
 				for (Object o : cn.visibleAnnotations) {
 					AnnotationNode an = (AnnotationNode) o;
 					if (an.desc.equals(Type.getDescriptor(TaintInstrumented.class))) {
+//						System.out.println("Found annotation for: "  + className2);
 						return classfileBuffer;
 					}
 				}
-			if (cn.interfaces != null)
-				for (Object s : cn.interfaces) {
-					if (s.equals(Type.getInternalName(TaintedWithObjTag.class)) || s.equals(Type.getInternalName(TaintedWithIntTag.class))) {
+			if(cn.interfaces != null)
+				for(Object s : cn.interfaces)
+				{
+					if(s.equals(Type.getInternalName(TaintedWithObjTag.class)) || s.equals(Type.getInternalName(TaintedWithIntTag.class))) {
+						System.out.println("Skipping instrumentation because we found interface for: "  + className2);
 						return classfileBuffer;
 					}
 				}
-			for (Object mn : cn.methods)
+			for (Object mn : cn.methods) {
 				if (((MethodNode) mn).name.equals("getPHOSPHOR_TAG")) {
 					return classfileBuffer;
 				}
+			}
 			if (Configuration.CACHE_DIR != null) {
 				String cacheKey = className.replace("/", ".");
 				File f = new File(Configuration.CACHE_DIR + File.separator + cacheKey + ".md5sum");
@@ -229,6 +299,7 @@ public class PreMain {
 					}
 				}
 			}
+
 			List<FieldNode> fields = cn.fields;
 			if (skipFrames) {
 				cn = null;
@@ -240,7 +311,7 @@ public class PreMain {
 						return new JSRInlinerAdapter(super.visitMethod(access, name, desc, signature, exceptions), access, name, desc, signature, exceptions);
 					}
 				}, 0);
-				cr = new ClassReader(cw.toByteArray());
+				cr = new ClassReader(fixupFrames(cw.toByteArray()));
 			}
 			//			System.out.println("Instrumenting: " + className);
 			//			System.out.println(classBeingRedefined);
@@ -261,16 +332,7 @@ public class PreMain {
 						_cv
 						//									)
 						, ClassReader.EXPAND_FRAMES);
-
-				if (DEBUG) {
-					File debugDir = new File("debug");
-					if (!debugDir.exists())
-						debugDir.mkdir();
-					File f = new File("debug/" + className.replace("/", ".") + ".class");
-					FileOutputStream fos = new FileOutputStream(f);
-					fos.write(cw.toByteArray());
-					fos.close();
-				}
+					dumpClass(className, cw.toByteArray());
 				{
 					//					if(TaintUtils.DEBUG_FRAMES)
 					//						System.out.println("NOW IN CHECKCLASSADAPTOR");
@@ -344,7 +406,7 @@ public class PreMain {
 				if (!innerException) {
 					PrintWriter pw = null;
 					try {
-						pw = new PrintWriter(new FileWriter("lastClass.txt"));
+						pw = new PrintWriter(new FileWriter("/tmp/lastClass.txt"));
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -353,8 +415,8 @@ public class PreMain {
 					pw.flush();
 				}
 				System.out.println("Saving " + className);
-				File f = new File("debug/" + className.replace("/", ".") + ".class");
-				try {
+				File f = new File("/tmp/debug/"+className.replace("/", ".")+".class");
+				try{
 					FileOutputStream fos = new FileOutputStream(f);
 					fos.write(classfileBuffer);
 					fos.close();
@@ -365,6 +427,37 @@ public class PreMain {
 				return new byte[0];
 
 			}
+		}
+		private byte[] fixupFrames(byte[] byteArray) {
+			ClassReader cr = new ClassReader(byteArray);
+			ClassWriter cw = new ClassWriter(cr, 0);
+			ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, cw) {
+				@Override
+				public MethodVisitor visitMethod(int access, String name, final String desc,
+						String signature, String[] exceptions) {
+					MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+					final boolean isStatic = (access & Opcodes.ACC_STATIC) != 0;
+					final int argOffset = isStatic ? 0 : 1;
+					final Type[] argTypes = Type.getArgumentTypes(desc);
+					final int numArgs = argTypes.length; 
+					return new MethodVisitor(Opcodes.ASM5, mv) {
+						@Override
+						public void visitFrame(int type, int nLocal, Object[] local,
+								int nStack, Object[] stack) {
+							for(int i = 0; i < numArgs; i++) {
+								if(local[i + argOffset] instanceof String) {
+									if(argTypes[i].getSort() == Type.OBJECT && argTypes[i].getClassName().equals("java.lang.Object")) {
+										local[i + argOffset] = argTypes[i].getInternalName();
+									}
+								}
+							}
+							super.visitFrame(type, nLocal, local, nStack, stack);
+						}
+					};
+				}
+			};
+			cr.accept(cv, ClassReader.EXPAND_FRAMES);
+			return cw.toByteArray();
 		}
 	}
 

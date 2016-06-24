@@ -35,10 +35,6 @@ public class TaintAdapter extends MethodVisitor implements Opcodes {
 	public static final boolean canRawTaintAccess(String internalName)
 	{
 		return !Configuration.MULTI_TAINTING || ( !(internalName.equals("java/lang/Float") || 
-//				internalName.equals("java/lang/Boolean") || 
-//				internalName.equals("java/lang/Byte") || 
-//				internalName.equals("java/lang/Short") || 
-				internalName.equals("java/lang/Character") || 
 				internalName.equals("java/lang/Double") ||internalName.equals("java/lang/Integer") || 
 				internalName.equals("java/lang/Long") || internalName.equals("java/lang/StackTraceElement")));
 	}

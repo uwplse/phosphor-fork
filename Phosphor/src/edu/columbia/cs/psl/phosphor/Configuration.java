@@ -3,16 +3,14 @@ package edu.columbia.cs.psl.phosphor;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Properties;
-import java.util.Scanner;
-
-import edu.columbia.cs.psl.phosphor.instrumenter.TaintTagFactory;
-import edu.columbia.cs.psl.phosphor.instrumenter.DataAndControlFlowTagFactory;
-import edu.columbia.cs.psl.phosphor.instrumenter.TaintAdapter;
-import edu.columbia.cs.psl.phosphor.instrumenter.TaintTrackingClassVisitor;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 
+import edu.columbia.cs.psl.phosphor.instrumenter.DataAndControlFlowTagFactory;
+import edu.columbia.cs.psl.phosphor.instrumenter.TaintAdapter;
+import edu.columbia.cs.psl.phosphor.instrumenter.TaintTagFactory;
+import edu.columbia.cs.psl.phosphor.instrumenter.TaintTrackingClassVisitor;
 import edu.columbia.cs.psl.phosphor.runtime.DerivedTaintListener;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
 
@@ -28,6 +26,8 @@ public class Configuration {
 	public static boolean WITHOUT_PROPOGATION = false;
 	public static boolean WITHOUT_FIELD_HIDING = false;
 	
+	public static boolean AUTO_TAINT = false;
+	
 	/*
 	 * Derived configuration values
 	 */
@@ -40,7 +40,7 @@ public class Configuration {
 	public static Object TAINT_TAG_ARRAY_STACK_TYPE = TAINT_TAG_ARRAY_INTERNAL_NAME;
 	public static String MULTI_TAINT_HANDLER_CLASS = "edu/columbia/cs/psl/phosphor/runtime/Taint";
 	public static String TAINTED_INT_INTERNAL_NAME = (!MULTI_TAINTING ? "edu/columbia/cs/psl/phosphor/struct/TaintedIntWithIntTag" : "edu/columbia/cs/psl/phosphor/struct/TaintedIntWithObjTag");
-	public static String TAINTED_INT_DESC = "L" + TAINTED_INT_INTERNAL_NAME + ";";
+	public static String TAINTED_INT_DESC = "Ledu/columbia/cs/psl/phosphor/struct/TaintedIntWithObjTag;";
 	public static int TAINT_ARRAY_LOAD_OPCODE = (!MULTI_TAINTING ? Opcodes.IALOAD : Opcodes.AALOAD);
 	public static int TAINT_ARRAY_STORE_OPCODE = (!MULTI_TAINTING ? Opcodes.IASTORE : Opcodes.AASTORE);
 	public static int TAINT_LOAD_OPCODE = (!MULTI_TAINTING ? Opcodes.ILOAD : Opcodes.ALOAD);
@@ -48,6 +48,10 @@ public class Configuration {
 	public static boolean OPT_CONSTANT_ARITHMETIC = true && !IMPLICIT_TRACKING;
 	public static Class TAINT_TAG_OBJ_CLASS = (Taint.class);
 	public static Class TAINT_TAG_OBJ_ARRAY_CLASS = (Taint[].class);
+	public static int CHECK_NONNULL_TAINT_OPCODE = MULTI_TAINTING ? Opcodes.IFNONNULL : Opcodes.IFNE;
+
+	
+	public static TaintCombiner taintCombiner = null;
 
 	public static Class<? extends TaintAdapter> extensionMethodVisitor;
 	public static Class extensionClassVisitor;
@@ -74,6 +78,7 @@ public class Configuration {
 		OPT_CONSTANT_ARITHMETIC = true && !IMPLICIT_TRACKING;
 		TAINT_TAG_OBJ_ARRAY_CLASS = (MULTI_TAINTING ? Taint[].class : int[].class);
 		TAINT_TAG_OBJ_CLASS = (MULTI_TAINTING ? Taint.class : Integer.TYPE);
+		CHECK_NONNULL_TAINT_OPCODE = (MULTI_TAINTING ? Opcodes.IFNONNULL : Opcodes.IFNE);
 
 
 		if (TaintTrackingClassVisitor.class != null && TaintTrackingClassVisitor.class.getClassLoader() != null) {
